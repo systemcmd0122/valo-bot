@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Valorant スケジュール管理</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="auth-container">
+        <main class="auth-card">
+            <div class="brand">
+                <img src="/icon.jpg" alt="Valorant Logo" class="logo" width="80" height="80">
+                <h1>Valorant<br>スケジュール管理</h1>
+            </div>
+
+            <div class="auth-steps">
+                <div class="auth-step">
+                    <div class="step-header">
+                        <div class="step-number">1</div>
+                        <h3>認証コードの取得</h3>
+                    </div>
+                    <div class="step-content">
+                        <p>Discordで以下のコマンドを実行してください：</p>
+                        <div class="command-box">
+                            <code>/get-auth</code>
+                            <button class="copy-btn" onclick="copyCommand()" aria-label="コピー">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                <span class="copy-text">コピー</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-step">
+                    <div class="step-header">
+                        <div class="step-number">2</div>
+                        <h3>認証コードの入力</h3>
+                    </div>
+                    <div class="step-content">
+                        <p>Discordに表示された6桁の認証コードを入力してください</p>
+                        <form id="loginForm" class="auth-form">
+                            <div class="auth-input-group">
+                                <input type="text" id="authKey" name="authKey" 
+                                       placeholder="認証コードを入力" required 
+                                       pattern="[A-Za-z0-9]{6}" maxlength="6" 
+                                       autocomplete="off" spellcheck="false">
+                                <button type="submit">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                                        <polyline points="10 17 15 12 10 7"></polyline>
+                                        <line x1="15" y1="12" x2="3" y2="12"></line>
+                                    </svg>
+                                    ログイン
+                                </button>
+                            </div>
+                            <div id="loginError" class="error-message" role="alert"></div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function copyCommand() {
+            navigator.clipboard.writeText('/get-auth');
+            const btn = document.querySelector('.copy-btn');
+            const text = btn.querySelector('.copy-text');
+            btn.classList.add('copied');
+            text.textContent = 'コピーしました！';
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                text.textContent = 'コピー';
+            }, 2000);
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const key = document.getElementById('authKey').value.trim().toUpperCase();
+            const errorElem = document.getElementById('loginError');
+            errorElem.textContent = '';
+            
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key })
+                });
+                
+                if (res.ok) {
+                    window.location.href = '/dashboard';
+                } else {
+                    const data = await res.json();
+                    errorElem.textContent = data.error || '認証に失敗しました';
+                }
+            } catch (error) {
+                errorElem.textContent = '通信エラーが発生しました';
+            }
+        });
+
+        // 自動的に大文字に変換
+        document.getElementById('authKey').addEventListener('input', function(e) {
+            this.value = this.value.toUpperCase();
+        });
+    </script>
+</body>
+</html>

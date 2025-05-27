@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "title": "test",
+    "type": "試合",
+    "dateTime": "2025-05-27T01:00:00.000Z",
+    "description": "test",
+    "createdBy": "systemcmd_04290",
+    "createdById": "1162414065348521984",
+    "participants": [],
+    "absentees": [
+      "1162414065348521984"
+    ],
+    "notifiedAt": []
+  },
+  {
+    "id": 2,
+    "title": "大会",
+    "type": "試合",
+    "dateTime": "2025-05-27T11:00:00.000Z",
+    "description": "ほどほどに",
+    "createdBy": "systemcmd_04290",
+    "createdById": "1162414065348521984",
+    "participants": [],
+    "absentees": [
+      "1162414065348521984"
+    ],
+    "notifiedAt": []
+  },
+  {
+    "id": 3,
+    "title": "練習",
+    "type": "練習",
+    "dateTime": "2025-05-27T01:30:00.000Z",
+    "description": "特になし",
+    "createdBy": "systemcmd_04290",
+    "createdById": "1162414065348521984",
+    "participants": [],
+    "absentees": [
+      "1162414065348521984"
+    ],
+    "notifiedAt": []
+  }
+]
