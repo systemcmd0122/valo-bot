@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Valorant スケジュール管理</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -47,26 +48,35 @@
                         <h3>認証コードの入力</h3>
                     </div>
                     <div class="step-content">
-                        <p>Discordに表示された6桁の認証コードを入力してください</p>
                         <form id="loginForm" class="auth-form">
-                            <div class="auth-input-group">
-                                <input type="text" id="authKey" name="authKey" 
-                                       placeholder="認証コードを入力" required 
-                                       pattern="[A-Za-z0-9]{6}" maxlength="6" 
-                                       autocomplete="off" spellcheck="false"
-                                       autocapitalize="characters">
-                                <button type="submit" class="submit-btn primary">
-                                    <span class="button-content">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                                            <polyline points="10 17 15 12 10 7"></polyline>
-                                            <line x1="15" y1="12" x2="3" y2="12"></line>
-                                        </svg>
-                                        ログイン
-                                    </span>
-                                </button>
+                            <div class="form-group">
+                                <p>Discordに表示された6桁の認証コードを入力してください</p>
+                                <div class="auth-code-group">
+                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
+                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
+                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
+                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
+                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
+                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
+                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
+                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
+                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
+                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
+                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
+                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
+                                </div>
+                                <div id="loginError" class="error-message" role="alert"></div>
                             </div>
-                            <div id="loginError" class="error-message" role="alert"></div>
+                            <button type="submit" class="submit-btn primary">
+                                <span class="button-content">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                                        <polyline points="10 17 15 12 10 7"></polyline>
+                                        <line x1="15" y1="12" x2="3" y2="12"></line>
+                                    </svg>
+                                    ログイン
+                                </span>
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -91,79 +101,100 @@
             }, 2000);
         }
 
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const authKeyInput = document.getElementById('authKey');
-            const key = authKeyInput.value.trim().toUpperCase();
-            const errorElem = document.getElementById('loginError');
-            const submitBtn = this.querySelector('.submit-btn');
-            const buttonContent = submitBtn.querySelector('.button-content');
-            errorElem.textContent = '';
+        document.addEventListener('DOMContentLoaded', () => {
+            const authInputs = document.querySelectorAll('.auth-code-group input');
             
-            if (!key) {
-                errorElem.textContent = '認証コードを入力してください';
-                authKeyInput.focus();
-                return;
-            }
-
-            if (!/^[A-Z0-9]{6}$/.test(key)) {
-                errorElem.textContent = '認証コードは6文字の英数字で入力してください';
-                authKeyInput.focus();
-                return;
-            }
-            
-            try {
-                submitBtn.disabled = true;
-                buttonContent.innerHTML = '<div class="loading-spinner"></div><span>認証中...</span>';
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
                 
-                const res = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key })
+                const authCode = Array.from(authInputs)
+                    .map(input => input.value)
+                    .join('')
+                    .toUpperCase();
+                    
+                const errorElem = document.getElementById('loginError');
+                const submitBtn = e.target.querySelector('.submit-btn');
+                const buttonContent = submitBtn.querySelector('.button-content');
+                errorElem.textContent = '';
+                
+                if (authCode.length !== 6) {
+                    errorElem.textContent = '認証コードは6文字で入力してください';
+                    return;
+                }
+                
+                try {
+                    submitBtn.disabled = true;
+                    buttonContent.innerHTML = '<div class="loading-spinner"></div><span>認証中...</span>';
+                    
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ key: authCode })
+                    });
+                    
+                    if (res.ok) {
+                        window.location.href = '/dashboard';
+                    } else {
+                        const data = await res.json();
+                        errorElem.textContent = data.error || '認証に失敗しました';
+                        authInputs[0].focus();
+                    }
+                } catch (error) {
+                    console.error('ログインエラー:', error);
+                    errorElem.textContent = '通信エラーが発生しました。もう一度お試しください。';
+                    authInputs[0].focus();
+                } finally {
+                    submitBtn.disabled = false;
+                    buttonContent.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" 
+                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                            <polyline points="10 17 15 12 10 7"></polyline>
+                            <line x1="15" y1="12" x2="3" y2="12"></line>
+                        </svg>
+                        ログイン
+                    `;
+                }
+            });
+
+            authInputs.forEach((input, index) => {
+                input.addEventListener('input', (e) => {
+                    const value = e.target.value;
+                    
+                    if (!/^[A-Za-z0-9]$/.test(value)) {
+                        e.target.value = '';
+                        return;
+                    }
+                    
+                    e.target.value = value.toUpperCase();
+                    
+                    if (value && index < authInputs.length - 1) {
+                        authInputs[index + 1].focus();
+                    }
                 });
                 
-                if (res.ok) {
-                    window.location.href = '/dashboard';
-                } else {
-                    const data = await res.json();
-                    errorElem.textContent = data.error || '認証に失敗しました';
-                    authKeyInput.focus();
-                }
-            } catch (error) {
-                console.error('ログインエラー:', error);
-                errorElem.textContent = '通信エラーが発生しました。もう一度お試しください。';
-                authKeyInput.focus();
-            } finally {
-                submitBtn.disabled = false;
-                buttonContent.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                        <polyline points="10 17 15 12 10 7"></polyline>
-                        <line x1="15" y1="12" x2="3" y2="12"></line>
-                    </svg>
-                    ログイン
-                `;
-            }
-        });
-
-        // 入力値を自動的に大文字に変換
-        const authKeyInput = document.getElementById('authKey');
-        authKeyInput.addEventListener('input', function(e) {
-            this.value = this.value.toUpperCase();
-        });
-
-        // スペースキーでの入力を防止
-        authKeyInput.addEventListener('keydown', function(e) {
-            if (e.key === ' ') {
-                e.preventDefault();
-            }
-        });
-
-        // ペースト時に自動的に大文字に変換し、スペースを除去
-        authKeyInput.addEventListener('paste', function(e) {
-            e.preventDefault();
-            const text = (e.clipboardData || window.clipboardData).getData('text');
-            this.value = text.toUpperCase().replace(/\s/g, '').slice(0, 6);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                        authInputs[index - 1].focus();
+                    }
+                });
+                
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const pastedText = (e.clipboardData || window.clipboardData)
+                        .getData('text')
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, '')
+                        .slice(0, 6);
+                        
+                    for (let i = 0; i < pastedText.length && i < authInputs.length; i++) {
+                        authInputs[i].value = pastedText[i];
+                        if (i < authInputs.length - 1) {
+                            authInputs[i + 1].focus();
+                        }
+                    }
+                });
+            });
         });
     </script>
 </body>

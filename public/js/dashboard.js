@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
         disableMobile: true,
         static: true,
         monthSelectorType: 'static',
-        showMonths: window.innerWidth >= 768 ? 2 : 1,
+        showMonths: 1, // 2から1に変更
         animate: true,
         nextArrow: `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -393,7 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const buttonContent = submitBtn.querySelector('.button-content');
         const formData = new FormData(scheduleForm);
         const dateTime = dateTimePicker.selectedDates[0];
-        
                 // バリデーション
         const titleInput = scheduleForm.querySelector('#title');
         if (!formData.get('title').trim()) {
@@ -497,11 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('resize', () => {
         adjustCalendarPosition();
-        if (window.innerWidth >= 768) {
-            dateTimePicker.set('showMonths', 2);
-        } else {
-            dateTimePicker.set('showMonths', 1);
-        }
+        // showMonthsの動的変更を削除（常に1ヶ月表示）
     });
 
     // カレンダーが開かれたときの追加処理
