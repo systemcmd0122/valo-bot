@@ -15,7 +15,7 @@ if (process.env.NODE_ENV !== 'production') {
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
-const AUTH_CHANNEL_ID = "1376714437448306718";
+const AUTH_CHANNEL_ID = "1376861488827994183";
 const PORT = process.env.PORT || 3000;
 
 // スリープ防止設定
