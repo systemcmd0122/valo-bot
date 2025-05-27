@@ -24,10 +24,14 @@ async function loadUserInfo() {
 async function createSchedule(scheduleData) {
     const form = document.getElementById('scheduleForm');
     const submitBtn = form.querySelector('button[type="submit"]');
+    const buttonContent = submitBtn.querySelector('.button-content');
     
     try {
         submitBtn.disabled = true;
-        submitBtn.textContent = '作成中...';
+        buttonContent.innerHTML = `
+            <div class="loading-spinner"></div>
+            <span>作成中...</span>
+        `;
 
         const response = await fetch('/api/schedules', {
             method: 'POST',
@@ -35,18 +39,22 @@ async function createSchedule(scheduleData) {
             body: JSON.stringify(scheduleData)
         });
 
-        if (!response.ok) throw new Error('スケジュールの作成に失敗しました');
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'スケジュールの作成に失敗しました');
+        }
 
         const newSchedule = await response.json();
         await loadSchedules();
         scheduleModal.close();
+        form.reset();
         return newSchedule;
     } catch (error) {
         console.error('スケジュール作成エラー:', error);
-        alert('スケジュールの作成に失敗しました');
+        throw error;
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = '作成';
+        buttonContent.innerHTML = '作成';
     }
 }
 
@@ -74,11 +82,15 @@ async function joinSchedule(scheduleId, button) {
             headers: { 'Content-Type': 'application/json' }
         });
 
-        if (!response.ok) throw new Error('参加処理に失敗しました');
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || '参加処理に失敗しました');
+        }
+
         await loadSchedules();
     } catch (error) {
         console.error('参加処理エラー:', error);
-        alert('参加処理に失敗しました');
+        alert(error.message);
         setButtonLoading(button, false, '参加する');
     }
 }
@@ -93,11 +105,15 @@ async function cancelSchedule(scheduleId, button) {
             headers: { 'Content-Type': 'application/json' }
         });
 
-        if (!response.ok) throw new Error('キャンセル処理に失敗しました');
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'キャンセル処理に失敗しました');
+        }
+
         await loadSchedules();
     } catch (error) {
         console.error('キャンセル処理エラー:', error);
-        alert('キャンセル処理に失敗しました');
+        alert(error.message);
         setButtonLoading(button, false, 'キャンセル');
     }
 }
@@ -105,16 +121,20 @@ async function cancelSchedule(scheduleId, button) {
 // スケジュール一覧の取得と表示
 async function loadSchedules(filter = 'upcoming') {
     const scheduleList = document.getElementById('scheduleList');
-    const loading = document.createElement('div');
-    loading.className = 'loading-state';
-    loading.innerHTML = '<div class="loading-spinner"></div><p>スケジュールを読み込んでいます...</p>';
-    scheduleList.innerHTML = '';
-    scheduleList.appendChild(loading);
+    scheduleList.innerHTML = `
+        <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>スケジュールを読み込んでいます...</p>
+        </div>
+    `;
 
     try {
         const response = await fetch('/api/schedules');
-        const schedules = await response.json();
+        if (!response.ok) {
+            throw new Error('スケジュールの取得に失敗しました');
+        }
 
+        const schedules = await response.json();
         const now = new Date();
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -141,7 +161,11 @@ async function loadSchedules(filter = 'upcoming') {
         scheduleList.innerHTML = '';
 
         if (filteredSchedules.length === 0) {
-            scheduleList.innerHTML = '<p class="no-schedules">スケジュールはありません</p>';
+            scheduleList.innerHTML = `
+                <div class="no-schedules">
+                    <p>スケジュールはありません</p>
+                </div>
+            `;
             return;
         }
 
@@ -163,8 +187,16 @@ async function loadSchedules(filter = 'upcoming') {
             const participantCount = card.querySelector('.participant-count');
             participantCount.textContent = 
                 `参加者: ${schedule.participants.length}人 / 不参加: ${schedule.absentees.length}人`;
-            participantCount.title = schedule.participants.length > 0 ?
-                `参加者: ${schedule.participants.join(', ')}` : '参加者なし';
+            
+            if (schedule.participants.length > 0) {
+                const participantsList = schedule.participants.map(id => {
+                    const isCreator = id === schedule.createdById;
+                    return `${id}${isCreator ? ' (作成者)' : ''}`;
+                }).join('\n');
+                participantCount.title = `参加者:\n${participantsList}`;
+            } else {
+                participantCount.title = '参加者なし';
+            }
 
             // 参加ステータス表示
             const statusText = isCreator ? '作成者' : 
@@ -179,9 +211,18 @@ async function loadSchedules(filter = 'upcoming') {
             if (scheduleDate <= now) {
                 joinBtn.disabled = true;
                 cancelBtn.disabled = true;
+                joinBtn.title = '開始時刻を過ぎているため参加できません';
+                cancelBtn.title = '開始時刻を過ぎているためキャンセルできません';
             } else {
                 joinBtn.disabled = isParticipant;
                 cancelBtn.disabled = !isParticipant;
+
+                if (isParticipant) {
+                    joinBtn.title = '既に参加予定です';
+                }
+                if (!isParticipant) {
+                    cancelBtn.title = '参加予定ではありません';
+                }
 
                 joinBtn.addEventListener('click', () => joinSchedule(schedule.id, joinBtn));
                 cancelBtn.addEventListener('click', () => cancelSchedule(schedule.id, cancelBtn));
@@ -191,9 +232,12 @@ async function loadSchedules(filter = 'upcoming') {
         });
     } catch (error) {
         console.error('スケジュール取得エラー:', error);
-        scheduleList.innerHTML = '<p class="error-message">スケジュールの取得に失敗しました</p>';
-    } finally {
-        scheduleList.classList.remove('loading');
+        scheduleList.innerHTML = `
+            <div class="error-message">
+                <p>${error.message}</p>
+                <button onclick="loadSchedules('${filter}')">再読み込み</button>
+            </div>
+        `;
     }
 }
 
@@ -220,6 +264,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const dateTimeInput = document.getElementById('dateTime');
     const calendarTrigger = document.querySelector('.calendar-trigger');
     
+    flatpickr.localize(flatpickr.l10ns.ja);
+    
     dateTimePicker = flatpickr(dateTimeInput, {
         locale: 'ja',
         enableTime: true,
@@ -229,22 +275,40 @@ document.addEventListener('DOMContentLoaded', () => {
         minuteIncrement: 15,
         defaultHour: 20,
         defaultMinute: 0,
-        position: "auto center",
+        position: "below",
         disableMobile: true,
         static: true,
         monthSelectorType: 'static',
         showMonths: window.innerWidth >= 768 ? 2 : 1,
         animate: true,
+        nextArrow: `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 18l6-6-6-6"/>
+            </svg>
+        `,
+        prevArrow: `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 18l-6-6 6-6"/>
+            </svg>
+        `,
         onChange: function(selectedDates, dateStr) {
             const now = new Date();
             if (selectedDates[0] < now) {
                 dateTimeInput.parentElement.classList.add('error');
-                dateTimeInput.nextElementSibling.nextElementSibling.textContent = '過去の日時は選択できません';
+                const help = dateTimeInput.nextElementSibling.nextElementSibling;
+                if (help) {
+                    help.textContent = '過去の日時は選択できません';
+                    help.style.color = 'var(--danger-color)';
+                }
                 dateTimePicker.clear();
                 return;
             }
             dateTimeInput.parentElement.classList.remove('error');
-            dateTimeInput.nextElementSibling.nextElementSibling.textContent = dateStr;
+            const help = dateTimeInput.nextElementSibling.nextElementSibling;
+            if (help) {
+                help.textContent = '選択された日時: ' + dateStr;
+                help.style.color = '';
+            }
             dateTimeInput.value = dateStr;
         },
         onOpen: function() {
@@ -281,6 +345,9 @@ document.addEventListener('DOMContentLoaded', () => {
         button.addEventListener('click', () => {
             scheduleModal.close();
             dateTimePicker.clear();
+            const form = document.getElementById('scheduleForm');
+            form.reset();
+            clearFormErrors();
         });
     });
 
@@ -289,10 +356,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const formError = scheduleForm.querySelector('.form-error');
 
     function showFormError(message, field = null) {
-        formError.textContent = message;
+        formError.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            ${message}
+        `;
         if (field) {
             const formGroup = field.closest('.form-group');
             formGroup.classList.add('error');
+            field.setAttribute('aria-invalid', 'true');
             field.focus();
             formGroup.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -302,6 +377,10 @@ document.addEventListener('DOMContentLoaded', () => {
         formError.textContent = '';
         scheduleForm.querySelectorAll('.form-group.error').forEach(group => {
             group.classList.remove('error');
+            const input = group.querySelector('input, select, textarea');
+            if (input) {
+                input.removeAttribute('aria-invalid');
+            }
         });
     }
 
@@ -315,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const formData = new FormData(scheduleForm);
         const dateTime = dateTimePicker.selectedDates[0];
         
-        // バリデーション
+                // バリデーション
         const titleInput = scheduleForm.querySelector('#title');
         if (!formData.get('title').trim()) {
             showFormError('タイトルを入力してください', titleInput);
@@ -359,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dateTimePicker.clear();
             scheduleModal.close();
         } catch (error) {
-            showFormError('作成に失敗しました。もう一度お試しください。');
+            showFormError(error.message || '作成に失敗しました。もう一度お試しください。');
         } finally {
             submitBtn.disabled = false;
             buttonContent.innerHTML = '作成';
@@ -378,12 +457,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ログアウトボタン
     document.getElementById('logoutBtn').addEventListener('click', async () => {
-        try {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            window.location.href = '/';
-        } catch (error) {
-            console.error('ログアウトエラー:', error);
-            alert('ログアウトに失敗しました');
+        if (confirm('ログアウトしますか？')) {
+            try {
+                const response = await fetch('/api/auth/logout', { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error('ログアウトに失敗しました');
+                }
+                window.location.href = '/';
+            } catch (error) {
+                console.error('ログアウトエラー:', error);
+                alert(error.message);
+            }
         }
+    });
+
+    // モバイル対応のカレンダー位置調整
+    function adjustCalendarPosition() {
+        const calendar = document.querySelector('.flatpickr-calendar');
+        if (!calendar) return;
+
+        if (window.innerWidth <= 768) {
+            calendar.style.position = 'fixed';
+            calendar.style.top = '50%';
+            calendar.style.left = '50%';
+            calendar.style.transform = 'translate(-50%, -50%)';
+            calendar.style.margin = '0';
+            calendar.style.maxHeight = 'calc(100vh - 40px)';
+            calendar.style.overflowY = 'auto';
+        } else {
+            calendar.style.position = '';
+            calendar.style.top = '';
+            calendar.style.left = '';
+            calendar.style.transform = '';
+            calendar.style.margin = '';
+            calendar.style.maxHeight = '';
+            calendar.style.overflowY = '';
+        }
+    }
+
+    window.addEventListener('resize', () => {
+        adjustCalendarPosition();
+        if (window.innerWidth >= 768) {
+            dateTimePicker.set('showMonths', 2);
+        } else {
+            dateTimePicker.set('showMonths', 1);
+        }
+    });
+
+    // カレンダーが開かれたときの追加処理
+    dateTimePicker.config.onOpen.push(() => {
+        adjustCalendarPosition();
+        if (window.innerWidth <= 768) {
+            document.body.style.overflow = 'hidden';
+        }
+    });
+
+    // カレンダーが閉じられたときの追加処理
+    dateTimePicker.config.onClose.push(() => {
+        document.body.style.overflow = '';
     });
 });

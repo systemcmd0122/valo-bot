@@ -19,6 +19,7 @@ body {
     line-height: 1.5;
     color: #111827;
     background-color: var(--background-color);
+    min-height: 100vh;
 }
 
 /* アプリケーションレイアウト */
@@ -81,6 +82,12 @@ body {
     overflow-x: auto;
     padding-bottom: 0.5rem;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.schedule-filters::-webkit-scrollbar {
+    display: none;
 }
 
 .filter-btn {
@@ -124,7 +131,7 @@ body {
 /* スケジュールカード */
 .schedule-card {
     background: white;
-    border-radius: 12px;
+    border-radius: 16px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
     overflow: hidden;
     display: flex;
@@ -242,17 +249,16 @@ body {
 .action-buttons button {
     flex: 1;
     margin: 0;
-    padding: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
 }
 
 .join-btn {
     background: var(--success-color);
     color: white;
     border: none;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    font-weight: 500;
-    padding: 0.625rem 1rem;
 }
 
 .join-btn:hover:not(:disabled) {
@@ -268,10 +274,6 @@ body {
     background: white;
     color: var(--danger-color);
     border: 1.5px solid var(--danger-color);
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    font-weight: 500;
-    padding: 0.625rem 1rem;
 }
 
 .cancel-btn:hover:not(:disabled) {
@@ -369,447 +371,331 @@ dialog form {
     overflow-y: auto;
 }
 
-dialog footer {
-    padding: 1.5rem;
-    border-top: 1px solid #E5E7EB;
-    background: #F9FAFB;
-}
-
-.form-error {
-    color: var(--danger-color);
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
+.form-sections {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 1.5rem;
 }
 
-/* スピナーとローディング状態の改善 */
-.loading-spinner {
-    width: 20px;
-    height: 20px;
-    border: 3px solid #F3F4F6;
-    border-top-color: currentColor;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-}
-
-.button-content {
+.form-section {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
-/* スケジュールグリッド */
-.schedule-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    flex-direction: column;
     gap: 1rem;
-    margin-top: 1rem;
 }
 
-/* スケジュールカード */
-.schedule-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
-    overflow: hidden;
+.form-group {
     display: flex;
     flex-direction: column;
-    margin: 0;
-    transition: transform 0.2s, box-shadow 0.2s;
-    animation: cardAppear 0.3s ease-out;
+    gap: 0.5rem;
 }
 
-.schedule-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.1);
-}
-
-@keyframes cardAppear {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.card-header {
-    padding: 1rem;
-    border-bottom: 1px solid #E5E7EB;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.card-header h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: #111827;
-}
-
-.type-badge {
-    background: var(--primary-color);
-    color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.875rem;
-}
-
-.card-content {
-    padding: 1.25rem;
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.datetime {
-    color: var(--primary-color);
+.form-group label {
     font-weight: 600;
-    font-size: 0.95rem;
+    color: #1F2937;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.datetime::before {
-    content: '🕒';
-    font-size: 1rem;
-}
-
-.description {
-    color: #4B5563;
-    font-size: 0.875rem;
-    line-height: 1.5;
-    white-space: pre-line;
-}
-
-.participants {
-    font-size: 0.875rem;
-    color: var(--success-color);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.participants::before {
-    content: '👥';
-    font-size: 1rem;
-}
-
-.participant-count {
-    display: inline-flex;
     align-items: center;
     gap: 0.25rem;
 }
 
-.card-footer {
-    padding: 1.25rem;
-    border-top: 1px solid #E5E7EB;
-    background: #F9FAFB;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
+.required {
+    color: var(--danger-color);
 }
 
-.participation-status {
+.form-group input,
+.form-group select,
+.form-group textarea {
+    border: 2px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 0.75rem;
+    transition: all 0.2s;
+    background: white;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    outline: none;
+}
+
+.form-help {
     color: #6B7280;
     font-size: 0.875rem;
 }
 
-.action-buttons {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.action-buttons button {
-    flex: 1;
-    margin: 0;
-    padding: 0.5rem;
-}
-
-.join-btn {
-    background: var(--success-color);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    font-weight: 500;
-    padding: 0.625rem 1rem;
-}
-
-.join-btn:hover:not(:disabled) {
-    background: #047857;
-    transform: translateY(-1px);
-}
-
-.join-btn:active:not(:disabled) {
-    transform: translateY(0);
-}
-
-.cancel-btn {
-    background: white;
-    color: var(--danger-color);
-    border: 1.5px solid var(--danger-color);
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    font-weight: 500;
-    padding: 0.625rem 1rem;
-}
-
-.cancel-btn:hover:not(:disabled) {
-    background: #FEE2E2;
-    transform: translateY(-1px);
-}
-
-.cancel-btn:active:not(:disabled) {
-    transform: translateY(0);
-}
-
-.join-btn:disabled,
-.cancel-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-}
-
-/* モーダル */
-dialog {
-    max-width: 540px;
-    width: 90%;
-    padding: 0;
-    border: none;
-    border-radius: 20px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    overflow: hidden;
-    background: white;
-}
-
-dialog::backdrop {
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-}
-
-dialog article {
-    margin: 0;
-    padding: 0;
-    max-height: calc(100vh - 2rem);
-    display: flex;
-    flex-direction: column;
-}
-
-dialog header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #E5E7EB;
-    background: #F9FAFB;
+.datetime-input {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
 }
 
-.modal-title {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+.datetime-input input {
+    padding-right: 3rem;
+    cursor: pointer;
 }
 
-.modal-title svg {
-    width: 24px;
-    height: 24px;
-    color: var(--primary-color);
-}
-
-.modal-title h3 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #1F2937;
-}
-
-dialog header button.close {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
+.calendar-trigger {
+    position: absolute;
+    right: 0.75rem;
     background: none;
-    border-radius: 8px;
+    border: none;
+    padding: 0;
     color: #6B7280;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 0.2s;
 }
 
-dialog header button.close:hover {
-    background: #F3F4F6;
-    color: #1F2937;
-}
-
-dialog form {
-    padding: 1.5rem;
-    overflow-y: auto;
-}
-
-dialog footer {
-    padding: 1.5rem;
-    border-top: 1px solid #E5E7EB;
-    background: #F9FAFB;
-}
-
-.form-error {
-    color: var(--danger-color);
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* スピナーとローディング状態の改善 */
-.loading-spinner {
-    width: 20px;
-    height: 20px;
-    border: 3px solid #F3F4F6;
-    border-top-color: currentColor;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-}
-
-.button-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
+.calendar-trigger:hover {
+    color: var(--primary-color);
 }
 
 /* Flatpickrのカスタマイズ */
 .flatpickr-calendar {
     background: white;
-    border: none;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
+    border: none !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                0 4px 6px -2px rgba(0, 0, 0, 0.05);
     border-radius: 16px;
-    padding: 1.25rem;
-    font-family: inherit;
     width: 360px !important;
+    font-family: inherit;
+    margin: 4px 0;
+    padding: 16px;
 }
 
 .flatpickr-months {
-    margin-bottom: 0.75rem;
-    padding: 0 0.5rem;
+    display: flex;
+    background: white;
+    border-radius: 16px 16px 0 0;
+    margin: -16px -16px 0;
+    padding: 16px 16px 8px;
+    position: relative;
+}
+
+.flatpickr-prev-month,
+.flatpickr-next-month {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 8px;
+    border-radius: 8px;
+    color: #6B7280 !important;
+    transition: all 0.2s;
+}
+
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+    background: #F3F4F6;
+    color: #1F2937 !important;
+}
+
+.flatpickr-prev-month {
+    left: 16px;
+}
+
+.flatpickr-next-month {
+    right: 16px;
 }
 
 .flatpickr-month {
-    background: white;
-    color: #1F2937;
-    fill: #1F2937;
-    height: 40px;
-}
-
-.flatpickr-current-month {
-    font-size: 1.125rem;
-    padding: 0;
+    height: auto;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
+    position: relative;
+    text-align: center;
+    background: transparent;
+    color: #1F2937;
+    fill: #1F2937;
+    padding: 0 40px;
 }
 
-.flatpickr-current-month .cur-month {
+.flatpickr-current-month {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transform: none;
+    left: auto;
+    padding: 0;
+    gap: 8px;
+    font-size: 1.125rem;
+}
+
+.flatpickr-current-month span.cur-month {
     font-weight: 600;
+    color: #1F2937;
+    margin: 0;
 }
 
 .numInputWrapper {
-    width: 70px;
+    width: 6ch;
+    margin: 0;
+}
+
+.flatpickr-current-month .numInputWrapper span {
+    display: none;
 }
 
 .flatpickr-current-month input.cur-year {
     font-weight: 600;
     color: #1F2937;
+    padding: 0;
+    margin: 0;
+    border: none;
+}
+
+.flatpickr-weekdays {
+    background: transparent;
+    margin: 0;
+    padding: 8px 0;
 }
 
 .flatpickr-weekday {
-    background: white;
+    background: transparent;
     color: #6B7280;
+    font-size: 0.875rem;
     font-weight: 600;
-    padding: 0.5rem 0;
-}
-
-.flatpickr-days {
-    padding: 0 0.5rem;
+    padding: 4px 0;
 }
 
 .dayContainer {
-    gap: 2px;
+    padding: 0;
+    width: 100%;
 }
 
-.flatpickr-day {
+span.flatpickr-day {
     border-radius: 8px;
+    margin: 2px;
+    height: 36px;
+    line-height: 36px;
     color: #1F2937;
     font-weight: 500;
-    height: 40px;
-    line-height: 40px;
-    margin: 2px;
-    max-width: calc(100% / 7 - 4px);
     border: 1px solid transparent;
+    max-width: calc(100% / 7 - 4px);
 }
 
-.flatpickr-day:hover {
+span.flatpickr-day:hover {
     background: #F3F4F6;
     border-color: transparent;
 }
 
-.flatpickr-day.selected {
+span.flatpickr-day.selected {
     background: var(--primary-color);
     border-color: transparent;
     color: white;
-    font-weight: 600;
 }
 
-.flatpickr-day.today {
+span.flatpickr-day.today {
     border-color: var(--primary-color);
     color: var(--primary-color);
     font-weight: 600;
 }
 
-.flatpickr-day.today:hover {
+span.flatpickr-day.today:hover {
     background: var(--primary-color);
     color: white;
 }
 
-.flatpickr-time {
-    border-top: 1px solid #E5E7EB;
-    margin: 0 -1.25rem;
-    padding: 0.75rem 1.25rem 0;
+span.flatpickr-day.flatpickr-disabled,
+span.flatpickr-day.flatpickr-disabled:hover,
+span.flatpickr-day.prevMonthDay,
+span.flatpickr-day.nextMonthDay {
+    color: #D1D5DB;
+    background: transparent;
+    cursor: not-allowed;
 }
 
-.flatpickr-time input {
+.flatpickr-time {
+    border-top: 1px solid #E5E7EB;
+    background: #F9FAFB;
+    border-radius: 0 0 16px 16px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    max-height: 48px;
+    margin: 0 -16px;
+    padding: 0 16px;
+}
+
+.flatpickr-time .numInputWrapper {
+    height: 48px;
+    flex: 1;
+}
+
+.flatpickr-time .numInputWrapper span {
+    display: none;
+}
+
+.flatpickr-time input.flatpickr-hour,
+.flatpickr-time input.flatpickr-minute {
+    background: transparent;
     color: #1F2937;
+    font-size: 1rem;
     font-weight: 500;
+    height: 48px;
+    padding: 0;
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.flatpickr-time input.flatpickr-hour:focus,
+.flatpickr-time input.flatpickr-minute:focus {
+    outline: none;
+}
+
+.flatpickr-time .flatpickr-time-separator {
+    color: #6B7280;
+    padding: 0 8px;
 }
 
 .flatpickr-time .flatpickr-am-pm {
+    height: 48px;
     color: #6B7280;
+    font-size: 1rem;
     font-weight: 500;
+    width: auto;
+    padding: 0 8px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }
+
+.flatpickr-time .flatpickr-am-pm:hover {
+    background: #F3F4F6;
+}
+
+/* フォーム関連 */
+.form-error {
+    color: var(--danger-color);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.form-group.error input,
+.form-group.error select,
+.form-group.error textarea {
+    border-color: var(--danger-color);
+}
+
+.form-group.error .form-help {
+    color: var(--danger-color);
+}
+
+/* モーダルフッター */
 dialog footer {
     padding: 1.5rem;
     border-top: 1px solid #E5E7EB;
     background: #F9FAFB;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
 }
 
 .modal-actions {
     display: flex;
-    justify-content: flex-end;
     gap: 0.75rem;
 }
 
@@ -820,11 +706,9 @@ dialog footer {
     justify-content: center;
     gap: 0.5rem;
     padding: 0.75rem 1.5rem;
+    border-radius: 12px;
     font-weight: 600;
-    border-radius: 8px;
     transition: all 0.2s;
-    height: 48px;
-    font-size: 1rem;
 }
 
 .modal-actions button.secondary {
@@ -850,78 +734,41 @@ dialog footer {
 }
 
 .modal-actions button.primary:disabled {
-    background: #9CA3AF;
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
-/* セレクトボックスのカスタマイズ */
-.select-wrapper {
-    position: relative;
-}
-
-.select-wrapper::after {
-    content: '';
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 10px;
-    height: 10px;
-    border-right: 2px solid #6B7280;
-    border-bottom: 2px solid #6B7280;
-    transform: translateY(-50%) rotate(45deg);
-    pointer-events: none;
-    transition: all 0.2s;
-}
-
-.select-wrapper:hover::after {
-    border-color: var(--primary-color);
-}
-
-.select-wrapper select {
-    appearance: none;
-    padding-right: 2.5rem;
-    background: white;
-    cursor: pointer;
-}
-
-/* テキストエリアの改善 */
-textarea {
-    min-height: 100px;
-    resize: vertical;
-    line-height: 1.5;
-}
-
-/* スピナーアニメーション */
-.spin {
-    animation: spin 1s linear infinite;
-    margin-right: 0.5rem;
+/* ローディング状態 */
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid #F3F4F6;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
 }
 
 @keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
-/* カレンダー表示状態 */
-.datetime-input.calendar-open input {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+    color: #6B7280;
 }
 
-/* モバイルでのカレンダー表示改善 */
-@media (max-width: 480px) {
-    .flatpickr-calendar {
-        width: calc(100vw - 2rem) !important;
-        max-width: 360px;
-    }
+.no-schedules {
+    text-align: center;
+    padding: 2rem;
+    color: #6B7280;
 }
 
-/* レスポンシブ対応 */
+/* レスポンシブデザイン */
 @media (max-width: 768px) {
     .app-nav {
         padding: 0 1rem;
@@ -933,376 +780,94 @@ textarea {
 
     .main-header {
         flex-direction: column;
-        gap: 1rem;
+        align-items: stretch;
     }
 
     .schedule-filters {
-        width: 100%;
-        justify-content: flex-start;
-        padding: 0 0.5rem;
-        margin: -0.5rem -0.5rem 0;
-        position: relative;
-    }
-
-    .schedule-filters::after {
-        content: '';
-        position: absolute;
-        right: 0;
-        top: 0;
-        bottom: 0;
-        width: 24px;
-        background: linear-gradient(to right, transparent, var(--background-color));
-        pointer-events: none;
+        order: 2;
+        margin: 0 -1rem;
+        padding: 0 1rem;
     }
 
     #newScheduleBtn {
-        width: 100%;
-        margin: 0;
+        order: 1;
     }
 
     .schedule-grid {
         grid-template-columns: 1fr;
-        gap: 0.75rem;
-        margin-top: 0.75rem;
-    }
-
-    .schedule-card {
-        margin: 0;
     }
 
     dialog {
         width: calc(100% - 2rem);
-        max-height: calc(100vh - 2rem);
         margin: 1rem;
+        max-height: calc(100vh - 2rem);
+    }
+
+    .modal-actions {
+        flex-direction: column;
+    }
+
+    .flatpickr-calendar {
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: calc(100vw - 32px) !important;
+        min-width: 280px;
+        position: fixed !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%) !important;
+    }
+
+    .flatpickr-calendar.open {
+        display: flex !important;
+        flex-direction: column;
+    }
+
+    .flatpickr-days {
+        width: 100% !important;
+    }
+
+    .dayContainer {
+        width: 100% !important;
+        min-width: unset !important;
+        max-width: unset !important;
+    }
+
+    span.flatpickr-day {
+        height: 40px;
+        line-height: 40px;
     }
 }
 
-/* モバイル用の追加スタイル */
 @media (max-width: 480px) {
+    .auth-input-group {
+        flex-direction: column;
+    }
+
     .card-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.5rem;
     }
 
-    .card-header h3 {
-        font-size: 1rem;
-    }
-
-    .type-badge {
-        font-size: 0.75rem;
-    }
-
     .action-buttons {
         flex-direction: column;
     }
 
-    .action-buttons button {
-        width: 100%;
-    }
-
-    .auth-card {
-        padding: 1.5rem;
-    }
-
-    .auth-input-group {
-        flex-direction: column;
-    }
-
-    .auth-input-group button {
-        width: 100%;
-    }
-
-    .step-content {
-        padding-left: 0;
-    }
-}
-
-/* ログイン画面 */
-.auth-container {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    background: linear-gradient(135deg, #6366F1 0%, #7C3AED 100%);
-}
-
-.auth-card {
-    background: white;
-    border-radius: 24px;
-    box-shadow: 
-        0 25px 50px -12px rgba(0, 0, 0, 0.25),
-        0 0 0 1px rgba(255, 255, 255, 0.1);
-    padding: 2.5rem;
-    width: 100%;
-    max-width: 480px;
-    margin: auto;
-    animation: cardAppear 0.5s ease-out;
-}
-
-.brand {
-    text-align: center;
-    margin-bottom: 3rem;
-}
-
-.brand .logo {
-    width: 80px;
-    height: 80px;
-    border-radius: 16px;
-    margin-bottom: 1.5rem;
-    box-shadow: 
-        0 8px 16px -4px rgba(0, 0, 0, 0.1),
-        0 0 0 1px rgba(0, 0, 0, 0.05);
-    object-fit: cover;
-}
-
-.brand h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #1F2937;
-    margin: 0;
-    line-height: 1.3;
-}
-
-.auth-steps {
-    display: flex;
-    flex-direction: column;
-    gap: 2.5rem;
-}
-
-.auth-step {
-    background: #F9FAFB;
-    border-radius: 16px;
-    padding: 1.5rem;
-    border: 1px solid #E5E7EB;
-}
-
-.step-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.step-number {
-    width: 36px;
-    height: 36px;
-    background: var(--primary-color);
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 1.125rem;
-    flex-shrink: 0;
-    box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.2);
-}
-
-.step-header h3 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #1F2937;
-}
-
-.step-content {
-    margin-left: calc(36px + 1rem);
-}
-
-.step-content p {
-    color: #4B5563;
-    margin: 0 0 1rem;
-    font-size: 0.95rem;
-    line-height: 1.5;
-}
-
-/* コマンドボックス */
-.command-box {
-    background: white;
-    border: 2px solid #E5E7EB;
-    border-radius: 12px;
-    padding: 0.875rem 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-    transition: all 0.2s ease;
-}
-
-.command-box:hover {
-    border-color: var(--primary-color);
-    background: #F9FAFB;
-}
-
-.command-box code {
-    color: #1F2937;
-    font-size: 1.125rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    background: transparent;
-}
-
-.copy-btn {
-    background: #F3F4F6;
-    border: none;
-    color: #6B7280;
-    cursor: pointer;
-    padding: 0.5rem;
-    margin: -0.25rem;
-    transition: all 0.2s;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-}
-
-.copy-btn:hover {
-    background: #E5E7EB;
-    color: var(--primary-color);
-}
-
-.copy-btn.copied {
-    background: var(--success-color);
-    color: white;
-}
-
-/* 認証フォーム */
-.auth-form {
-    margin-top: 1.5rem;
-}
-
-.auth-input-group {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 100%;
-}
-
-.auth-input-group input {
-    width: 100%;
-    padding: 1rem 1.25rem;
-    border: 2px solid #E5E7EB;
-    border-radius: 12px;
-    font-size: 1.25rem;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    background: white;
-    color: #1F2937;
-    text-align: center;
-}
-
-.auth-input-group input::placeholder {
-    color: #9CA3AF;
-    letter-spacing: normal;
-    text-transform: none;
-}
-
-.auth-input-group input:hover {
-    border-color: #D1D5DB;
-}
-
-.auth-input-group input:focus {
-    border-color: var(--primary-color);
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-}
-
-.auth-input-group button {
-    width: 100%;
-    padding: 1rem 1.5rem;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 1.125rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
-.auth-input-group button:hover {
-    background: var(--primary-hover);
-    transform: translateY(-1px);
-}
-
-.auth-input-group button:active {
-    transform: translateY(0);
-}
-
-.error-message {
-    color: var(--danger-color);
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-    text-align: center;
-    min-height: 1.25rem;
-}
-
-/* モバイル対応 */
-@media (max-width: 480px) {
-    .auth-container {
-        padding: 1.5rem;
-    }
-
-    .auth-card {
-        padding: 1.5rem;
-    }
-
-    .brand .logo {
-        width: 64px;
-        height: 64px;
-    }
-
-    .brand h1 {
-        font-size: 1.5rem;
-    }
-
-    .auth-step {
-        padding: 1.25rem;
-    }
-
-    .step-content {
-        margin-left: 0;
-    }
-
-    .command-box {
-        flex-direction: column;
+    .form-sections {
         gap: 1rem;
-        text-align: center;
     }
 
-    .command-box code {
-        font-size: 1rem;
+    .flatpickr-calendar {
+        padding: 12px;
     }
 
-    .copy-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 0.75rem;
-        margin: 0;
-        border-radius: 8px;
+    .flatpickr-months {
+        margin: -12px -12px 0;
+        padding: 12px 12px 8px;
     }
-}
 
-/* エラーメッセージ */
-.error-message {
-    color: var(--danger-color);
-    font-size: 0.875rem;
-    margin-top: 0.5rem;
-}
-
-/* ローディング状態 */
-.loading {
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-/* ボタン無効化状態 */
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    .flatpickr-time {
+        margin: 0 -12px;
+        padding: 0 12px;
+    }
 }
