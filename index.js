@@ -16,6 +16,7 @@ const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 const AUTH_CHANNEL_ID = "1376861488827994183";
+const NOTIFICATION_CHANNEL_ID = process.env.NOTIFICATION_CHANNEL_ID;
 const PORT = process.env.PORT || 3000;
 
 // スリープ防止設定
@@ -64,6 +65,20 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (error) => {
     console.error('未処理のPromise rejection:', error);
 });
+
+// 日本時間で日時をフォーマットする関数
+function formatJST(dateString) {
+    const date = new Date(dateString);
+    return date.toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        weekday: 'short'
+    });
+}
 
 // スリープ防止機能
 function keepAlive() {
@@ -297,7 +312,7 @@ client.on('interactionCreate', async interaction => {
 
                 embed.addFields({
                     name: `${schedule.title} (${schedule.type})`,
-                    value: `🕒 ${new Date(schedule.dateTime).toLocaleString('ja-JP')}\n` +
+                    value: `🕒 ${formatJST(schedule.dateTime)}\n` +
                           `👥 参加: ${participantsCount}人 | 不参加: ${absenteesCount}人\n` +
                           `📝 ${schedule.description || 'なし'}\n` +
                           `${isCreator ? '(あなたが作成)' : ''}${isParticipant ? '(参加予定)' : ''}`
@@ -433,7 +448,8 @@ app.post('/api/schedules', async (req, res) => {
     
     // Discord通知
     try {
-        const channel = client.channels.cache.get(AUTH_CHANNEL_ID);
+        const channelId = NOTIFICATION_CHANNEL_ID || AUTH_CHANNEL_ID;
+        const channel = client.channels.cache.get(channelId);
         if (channel) {
             const embed = new EmbedBuilder()
                 .setColor(0x00AE86)
@@ -441,7 +457,7 @@ app.post('/api/schedules', async (req, res) => {
                 .addFields(
                     { name: 'タイトル', value: newSchedule.title },
                     { name: 'タイプ', value: newSchedule.type },
-                    { name: '日時', value: new Date(newSchedule.dateTime).toLocaleString('ja-JP') },
+                    { name: '日時', value: formatJST(newSchedule.dateTime) },
                     { name: '説明', value: newSchedule.description || 'なし' }
                 )
                 .setTimestamp();
