@@ -1,9 +1,9 @@
 {
   "name": "valo-bot",
   "version": "1.0.0",
-  "main": "integrated_server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node integrated_server.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.19.3",
