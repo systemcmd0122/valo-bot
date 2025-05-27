@@ -3,7 +3,11 @@ const session = require('express-session');
 const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const fs = require('fs').promises;
 const path = require('path');
-require('dotenv').config();
+
+// 開発環境のみ .env を読み込む
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
 // 設定
 const TOKEN = process.env.TOKEN;
@@ -13,8 +17,8 @@ const AUTH_CHANNEL_ID = "1376714437448306718";
 const PORT = process.env.PORT || 3000;
 
 // ファイルパス
-const AUTH_KEY_FILE = path.join(__dirname, 'auth_keys.json');
-const SCHEDULE_FILE = path.join(__dirname, 'schedules.json');
+const AUTH_KEY_FILE = process.env.AUTH_KEY_FILE || path.join(__dirname, 'auth_keys.json');
+const SCHEDULE_FILE = process.env.SCHEDULE_FILE || path.join(__dirname, 'schedules.json');
 
 // Expressアプリケーション
 const app = express();
@@ -34,12 +38,26 @@ app.use(express.json());
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000
+    }
 }));
 
 // メモリ内データストレージ
 let schedules = [];
 let nextId = 1;
+
+// エラーハンドリング
+process.on('uncaughtException', (error) => {
+    console.error('未捕捉のエラー:', error);
+});
+
+process.on('unhandledRejection', (error) => {
+    console.error('未処理のPromise rejection:', error);
+});
 
 // スケジュールの読み込み
 async function loadSchedules() {
@@ -77,7 +95,7 @@ client.on('interactionCreate', async interaction => {
             }
 
             const key = Math.random().toString(36).slice(-6).toUpperCase();
-            const expireAt = Date.now() + 10 * 60 * 1000; // 10分有効
+            const expireAt = Date.now() + 10 * 60 * 1000;
 
             const entry = {
                 key,
