@@ -3,6 +3,8 @@ const session = require('express-session');
 const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
 const fs = require('fs').promises;
 const path = require('path');
+const https = require('https');
+const http = require('http');
 
 // 開発環境のみ .env を読み込む
 if (process.env.NODE_ENV !== 'production') {
@@ -15,6 +17,10 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 const AUTH_CHANNEL_ID = "1376714437448306718";
 const PORT = process.env.PORT || 3000;
+
+// スリープ防止設定
+const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || `http://localhost:${PORT}`;
+const PING_INTERVAL = 14 * 60 * 1000; // 14分間隔（Koyebは15分でスリープするため）
 
 // ファイルパス
 const AUTH_KEY_FILE = process.env.AUTH_KEY_FILE || path.join(__dirname, 'auth_keys.json');
@@ -58,6 +64,58 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (error) => {
     console.error('未処理のPromise rejection:', error);
 });
+
+// スリープ防止機能
+function keepAlive() {
+    const url = new URL(KEEP_ALIVE_URL);
+    const options = {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: '/ping',
+        method: 'GET',
+        timeout: 30000
+    };
+
+    const client = url.protocol === 'https:' ? https : http;
+    
+    const req = client.request(options, (res) => {
+        console.log(`Keep-alive ping successful: ${res.statusCode} at ${new Date().toISOString()}`);
+    });
+
+    req.on('error', (error) => {
+        console.error('Keep-alive ping failed:', error.message);
+    });
+
+    req.on('timeout', () => {
+        console.error('Keep-alive ping timeout');
+        req.destroy();
+    });
+
+    req.end();
+}
+
+// 定期実行の設定
+function startKeepAlive() {
+    // 即座に1回実行
+    keepAlive();
+    
+    // 定期実行を開始
+    const interval = setInterval(keepAlive, PING_INTERVAL);
+    
+    // プロセス終了時にクリーンアップ
+    process.on('SIGTERM', () => {
+        console.log('SIGTERM received, cleaning up...');
+        clearInterval(interval);
+    });
+    
+    process.on('SIGINT', () => {
+        console.log('SIGINT received, cleaning up...');
+        clearInterval(interval);
+        process.exit(0);
+    });
+    
+    console.log(`Keep-alive started with ${PING_INTERVAL / 1000 / 60} minute intervals`);
+}
 
 // スケジュールの読み込み
 async function loadSchedules() {
@@ -293,6 +351,29 @@ async function deployCommands() {
     }
 }
 
+// Keep-alive用エンドポイント
+app.get('/ping', (req, res) => {
+    res.status(200).json({ 
+        status: 'alive', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage()
+    });
+});
+
+// ヘルスチェック用エンドポイント（より詳細）
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        env: process.env.NODE_ENV || 'development',
+        schedulesCount: schedules.length,
+        botConnected: client.isReady()
+    });
+});
+
 // Express ルート
 app.post('/api/auth/login', async (req, res) => {
     const { key } = req.body;
@@ -444,6 +525,14 @@ async function startServer() {
         
         app.listen(PORT, () => {
             console.log(`サーバーが起動しました: http://localhost:${PORT}`);
+            
+            // スリープ防止機能を開始（本番環境のみ）
+            if (process.env.NODE_ENV === 'production') {
+                // サーバー起動から少し待ってからkeep-aliveを開始
+                setTimeout(startKeepAlive, 30000); // 30秒後に開始
+            } else {
+                console.log('開発環境: Keep-alive機能は無効です');
+            }
         });
     } catch (error) {
         console.error('サーバー起動エラー:', error);
