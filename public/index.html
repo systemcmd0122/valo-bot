@@ -10,10 +10,15 @@
 <body>
     <div class="auth-container">
         <main class="auth-card">
-            <div class="brand">
-                <img src="/icon.jpg" alt="Valorant Logo" class="logo" width="80" height="80">
-                <h1>Valorant<br>スケジュール管理</h1>
-            </div>
+            <header class="auth-header">
+                <div class="brand">
+                    <img src="/icon.jpg" alt="Valorant Logo" class="logo" width="80" height="80">
+                    <h1>Valorant<br>スケジュール管理</h1>
+                </div>
+                <p class="auth-description">
+                    チームのスケジュール管理をDiscordと連携して簡単に
+                </p>
+            </header>
 
             <div class="auth-steps">
                 <div class="auth-step">
@@ -48,14 +53,17 @@
                                 <input type="text" id="authKey" name="authKey" 
                                        placeholder="認証コードを入力" required 
                                        pattern="[A-Za-z0-9]{6}" maxlength="6" 
-                                       autocomplete="off" spellcheck="false">
-                                <button type="submit" class="submit-btn">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                                        <polyline points="10 17 15 12 10 7"></polyline>
-                                        <line x1="15" y1="12" x2="3" y2="12"></line>
-                                    </svg>
-                                    ログイン
+                                       autocomplete="off" spellcheck="false"
+                                       autocapitalize="characters">
+                                <button type="submit" class="submit-btn primary">
+                                    <span class="button-content">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                                            <polyline points="10 17 15 12 10 7"></polyline>
+                                            <line x1="15" y1="12" x2="3" y2="12"></line>
+                                        </svg>
+                                        ログイン
+                                    </span>
                                 </button>
                             </div>
                             <div id="loginError" class="error-message" role="alert"></div>
@@ -63,6 +71,10 @@
                     </div>
                 </div>
             </div>
+
+            <footer class="auth-footer">
+                <p>※ログインにはDiscordアカウントが必要です</p>
+            </footer>
         </main>
     </div>
 
@@ -81,14 +93,28 @@
 
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const key = document.getElementById('authKey').value.trim().toUpperCase();
+            const authKeyInput = document.getElementById('authKey');
+            const key = authKeyInput.value.trim().toUpperCase();
             const errorElem = document.getElementById('loginError');
             const submitBtn = this.querySelector('.submit-btn');
+            const buttonContent = submitBtn.querySelector('.button-content');
             errorElem.textContent = '';
+            
+            if (!key) {
+                errorElem.textContent = '認証コードを入力してください';
+                authKeyInput.focus();
+                return;
+            }
+
+            if (!/^[A-Z0-9]{6}$/.test(key)) {
+                errorElem.textContent = '認証コードは6文字の英数字で入力してください';
+                authKeyInput.focus();
+                return;
+            }
             
             try {
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<div class="loading-spinner"></div>ログイン中...';
+                buttonContent.innerHTML = '<div class="loading-spinner"></div><span>認証中...</span>';
                 
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
@@ -101,12 +127,15 @@
                 } else {
                     const data = await res.json();
                     errorElem.textContent = data.error || '認証に失敗しました';
+                    authKeyInput.focus();
                 }
             } catch (error) {
-                errorElem.textContent = '通信エラーが発生しました';
+                console.error('ログインエラー:', error);
+                errorElem.textContent = '通信エラーが発生しました。もう一度お試しください。';
+                authKeyInput.focus();
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = `
+                buttonContent.innerHTML = `
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
                         <polyline points="10 17 15 12 10 7"></polyline>
@@ -117,9 +146,24 @@
             }
         });
 
-        // 自動的に大文字に変換
-        document.getElementById('authKey').addEventListener('input', function(e) {
+        // 入力値を自動的に大文字に変換
+        const authKeyInput = document.getElementById('authKey');
+        authKeyInput.addEventListener('input', function(e) {
             this.value = this.value.toUpperCase();
+        });
+
+        // スペースキーでの入力を防止
+        authKeyInput.addEventListener('keydown', function(e) {
+            if (e.key === ' ') {
+                e.preventDefault();
+            }
+        });
+
+        // ペースト時に自動的に大文字に変換し、スペースを除去
+        authKeyInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            this.value = text.toUpperCase().replace(/\s/g, '').slice(0, 6);
         });
     </script>
 </body>
