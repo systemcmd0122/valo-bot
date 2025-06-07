@@ -86,7 +86,18 @@ function formatJST(dateString) {
 async function getUserDisplayName(userId) {
     try {
         const user = await client.users.fetch(userId);
-        return user.displayName || user.username;
+        // ギルドメンバーの表示名を取得（ニックネーム優先）
+        if (GUILD_ID) {
+            try {
+                const guild = await client.guilds.fetch(GUILD_ID);
+                const member = await guild.members.fetch(userId);
+                return member.displayName; // ニックネームまたはユーザー名
+            } catch (memberError) {
+                // ギルドメンバーでない場合はユーザー名を返す
+                return user.globalName || user.username;
+            }
+        }
+        return user.globalName || user.username;
     } catch (error) {
         console.error(`ユーザー名取得エラー (ID: ${userId}):`, error);
         return 'Unknown User';
@@ -286,7 +297,7 @@ client.on('interactionCreate', async interaction => {
             const entry = {
                 key,
                 discordId: interaction.user.id,
-                username: interaction.user.username,
+                username: interaction.member?.displayName || interaction.user.globalName || interaction.user.username,
                 expireAt,
                 used: false
             };
@@ -451,7 +462,7 @@ client.on('interactionCreate', async interaction => {
                 new EmbedBuilder()
                     .setColor(0x00AE86)
                     .setTitle('🔑 認証リクエスト')
-                    .setDescription(`**${interaction.user.username}** さんの認証リクエスト\nボタンをクリックして認証コードを取得してください。`)
+                    .setDescription(`**${interaction.member?.displayName || interaction.user.globalName || interaction.user.username}** さんの認証リクエスト\nボタンをクリックして認証コードを取得してください。`)
                     .setTimestamp()
             ],
             components: [row]
