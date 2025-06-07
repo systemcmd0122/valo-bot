@@ -104,9 +104,12 @@ function initializeDateTimePicker() {
     // Flatpickrが読み込まれているかチェック
     if (typeof flatpickr === 'undefined') {
         console.error('Flatpickr is not loaded');
+        // Flatpickrがない場合でも直接入力は可能にする
+        setupDirectInput();
         return;
     }
 
+    // 直接入力を可能にする設定
     dateTimePicker = flatpickr(dateTimeInput, {
         enableTime: true,
         dateFormat: "Y-m-d H:i",
@@ -120,8 +123,8 @@ function initializeDateTimePicker() {
         animate: false,
         static: false,
         appendTo: document.body,
-        clickOpens: true,
-        allowInput: false,
+        clickOpens: false, // 直接入力を可能にするため無効化
+        allowInput: true, // 直接入力を許可
         nextArrow: `
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 18l6-6-6-6"/>
@@ -133,33 +136,21 @@ function initializeDateTimePicker() {
             </svg>
         `,
         onChange: function(selectedDates, dateStr, instance) {
-            const now = new Date();
-            if (selectedDates.length > 0 && selectedDates[0] <= now) {
-                dateTimeInput.parentElement.classList.add('error');
-                showFormError('過去の日時は選択できません。', dateTimeInput);
-                setTimeout(() => {
-                    instance.clear();
-                }, 100);
-                return;
+            if (selectedDates.length > 0) {
+                const selectedDate = selectedDates[0];
+                const now = new Date();
+                
+                if (selectedDate <= now) {
+                    dateTimeInput.parentElement.classList.add('error');
+                    showFormError('過去の日時は選択できません。', dateTimeInput);
+                    return;
+                }
             }
             dateTimeInput.parentElement.classList.remove('error');
             clearFormErrors();
-            
-            // 値が設定されたら入力フィールドを更新
-            if (selectedDates.length > 0) {
-                dateTimeInput.value = dateStr;
-            }
         },
         onReady: function(selectedDates, dateStr, instance) {
             console.log('Flatpickr calendar ready');
-            // カレンダーが準備完了したらボタンにイベント追加
-            if (calendarTrigger) {
-                calendarTrigger.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    instance.open();
-                });
-            }
         },
         onOpen: function(selectedDates, dateStr, instance) {
             dateTimeInput.parentElement.classList.add('calendar-open');
@@ -171,19 +162,89 @@ function initializeDateTimePicker() {
         }
     });
 
-    // 入力フィールドクリックでもカレンダーを開く
-    dateTimeInput.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (dateTimePicker) {
-            dateTimePicker.open();
+    // カレンダーボタンクリックでカレンダーを開く
+    if (calendarTrigger) {
+        calendarTrigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dateTimePicker) {
+                dateTimePicker.open();
+            }
+        });
+    }
+
+    // 直接入力のバリデーション
+    setupDirectInput();
+}
+
+// 直接入力の設定
+function setupDirectInput() {
+    const dateTimeInput = document.getElementById('dateTime');
+    
+    if (!dateTimeInput) return;
+
+    // 入力値のリアルタイム検証
+    dateTimeInput.addEventListener('input', (e) => {
+        const value = e.target.value.trim();
+        
+        if (!value) {
+            dateTimeInput.parentElement.classList.remove('error');
+            clearFormErrors();
+            return;
+        }
+
+        // 日時形式の検証 (YYYY-MM-DD HH:MM または YYYY/MM/DD HH:MM)
+        const dateTimeRegex = /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})$/;
+        const match = value.match(dateTimeRegex);
+        
+        if (match) {
+            const [, year, month, day, hour, minute] = match;
+            const inputDate = new Date(year, month - 1, day, hour, minute);
+            const now = new Date();
+            
+            // 有効な日付かチェック
+            if (isNaN(inputDate.getTime())) {
+                dateTimeInput.parentElement.classList.add('error');
+                showFormError('有効な日時を入力してください。', dateTimeInput);
+                return;
+            }
+            
+            // 過去の日時かチェック
+            if (inputDate <= now) {
+                dateTimeInput.parentElement.classList.add('error');
+                showFormError('過去の日時は選択できません。', dateTimeInput);
+                return;
+            }
+            
+            // エラーをクリア
+            dateTimeInput.parentElement.classList.remove('error');
+            clearFormErrors();
+            
+            // Flatpickrがある場合は値を同期
+            if (dateTimePicker) {
+                dateTimePicker.setDate(inputDate, false);
+            }
+        } else if (value.length > 10) {
+            // 入力が一定の長さを超えたら形式チェック
+            dateTimeInput.parentElement.classList.add('error');
+            showFormError('日時の形式: YYYY-MM-DD HH:MM (例: 2024-12-25 20:00)', dateTimeInput);
         }
     });
 
-    // フォーカス時にもカレンダーを開く
+    // フォーカス時にプレースホルダーを更新
     dateTimeInput.addEventListener('focus', (e) => {
-        if (dateTimePicker) {
-            dateTimePicker.open();
+        if (!e.target.value) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            tomorrow.setHours(20, 0, 0, 0);
+            const exampleDate = tomorrow.toISOString().slice(0, 16).replace('T', ' ');
+            e.target.placeholder = `例: ${exampleDate}`;
         }
+    });
+
+    // フォーカスアウト時にプレースホルダーをリセット
+    dateTimeInput.addEventListener('blur', (e) => {
+        e.target.placeholder = '日時を選択または直接入力 (例: 2024-12-25 20:00)';
     });
 }
 
@@ -434,7 +495,22 @@ async function handleFormSubmit(e) {
     
     const submitBtn = e.target.querySelector('button[type="submit"]');
     const formData = new FormData(e.target);
-    const dateTime = dateTimePicker.selectedDates[0];
+    const dateTimeInput = document.getElementById('dateTime');
+    const dateTimeValue = dateTimeInput.value.trim();
+    
+    // Flatpickrから選択された日時を取得
+    let dateTime = dateTimePicker && dateTimePicker.selectedDates[0];
+    
+    // 直接入力の場合は文字列から日時を解析
+    if (!dateTime && dateTimeValue) {
+        const dateTimeRegex = /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})$/;
+        const match = dateTimeValue.match(dateTimeRegex);
+        
+        if (match) {
+            const [, year, month, day, hour, minute] = match;
+            dateTime = new Date(year, month - 1, day, hour, minute);
+        }
+    }
     
     // バリデーション
     if (!validateForm(formData, dateTime)) {
@@ -489,6 +565,8 @@ async function handleFormSubmit(e) {
 function validateForm(formData, dateTime) {
     const title = formData.get('title')?.trim();
     const type = formData.get('type');
+    const dateTimeInput = document.getElementById('dateTime');
+    const dateTimeValue = dateTimeInput.value.trim();
     
     if (!title) {
         showFormError('ミッションタイトルは必須です。', document.getElementById('title'));
@@ -505,12 +583,33 @@ function validateForm(formData, dateTime) {
         return false;
     }
     
-    if (!dateTime) {
+    if (!dateTimeValue) {
         showFormError('ミッション日時を選択してください。', document.getElementById('dateTime'));
         return false;
     }
     
-    if (dateTime <= new Date()) {
+    // 直接入力の場合の日時解析
+    let finalDateTime = dateTime;
+    if (!dateTime || isNaN(dateTime)) {
+        // 直接入力された文字列から日時を解析
+        const dateTimeRegex = /^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s+(\d{1,2}):(\d{2})$/;
+        const match = dateTimeValue.match(dateTimeRegex);
+        
+        if (!match) {
+            showFormError('日時の形式が正しくありません。形式: YYYY-MM-DD HH:MM', document.getElementById('dateTime'));
+            return false;
+        }
+        
+        const [, year, month, day, hour, minute] = match;
+        finalDateTime = new Date(year, month - 1, day, hour, minute);
+        
+        if (isNaN(finalDateTime.getTime())) {
+            showFormError('有効な日時を入力してください。', document.getElementById('dateTime'));
+            return false;
+        }
+    }
+    
+    if (finalDateTime <= new Date()) {
         showFormError('過去の日時は選択できません。', document.getElementById('dateTime'));
         return false;
     }

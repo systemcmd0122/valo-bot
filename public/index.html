@@ -274,7 +274,13 @@
                         }
                         
                         // 最後の入力欄、または全部埋まっていない場合は次の空欄にフォーカス
-                        const nextEmptyIndex = authInputs.findIndex(inp => !inp.value);
+                        let nextEmptyIndex = -1;
+                        for (let i = 0; i < authInputs.length; i++) {
+                            if (!authInputs[i].value) {
+                                nextEmptyIndex = i;
+                                break;
+                            }
+                        }
                         if (nextEmptyIndex !== -1) {
                             authInputs[nextEmptyIndex].focus();
                         } else {
