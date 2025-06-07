@@ -307,7 +307,7 @@
             });
 
             // コピペ機能の改善
-            authInputs.forEach((input, index) => {
+            Array.from(authInputs).forEach((input, index) => {
                 input.addEventListener('paste', (e) => {
                     e.preventDefault();
                     const pastedText = (e.clipboardData || window.clipboardData)
