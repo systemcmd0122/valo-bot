@@ -1,81 +1,86 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Valorant スケジュール管理</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <title>VALORANT Team Scheduler</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="auth-container">
+        <div class="background-pattern"></div>
         <main class="auth-card">
             <header class="auth-header">
                 <div class="brand">
-                    <img src="/icon.jpg" alt="Valorant Logo" class="logo" width="80" height="80">
-                    <h1>Valorant<br>スケジュール管理</h1>
+                    <div class="logo-container">
+                        <img src="/icon.jpg" alt="VALORANT Logo" class="logo">
+                        <div class="logo-glow"></div>
+                    </div>
+                    <div class="brand-text">
+                        <h1>VALORANT</h1>
+                        <span class="subtitle">TEAM SCHEDULER</span>
+                    </div>
                 </div>
                 <p class="auth-description">
-                    チームのスケジュール管理をDiscordと連携して簡単に
+                    Secure tactical coordination platform
                 </p>
             </header>
 
             <div class="auth-steps">
                 <div class="auth-step">
                     <div class="step-header">
-                        <div class="step-number">1</div>
-                        <h3>認証コードの取得</h3>
+                        <div class="step-number">01</div>
+                        <div class="step-info">
+                            <h3>Discord Authentication</h3>
+                            <p>Get your secure access key</p>
+                        </div>
                     </div>
                     <div class="step-content">
-                        <p>Discordで以下のコマンドを実行してください：</p>
-                        <div class="command-box">
-                            <code>/get-auth</code>
-                            <button class="copy-btn" onclick="copyCommand()" aria-label="コピー">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                </svg>
-                                <span class="copy-text">コピー</span>
-                            </button>
+                        <div class="command-section">
+                            <label>Execute command in Discord:</label>
+                            <div class="command-box">
+                                <code>/get-auth</code>
+                                <button class="copy-btn" onclick="copyCommand()" aria-label="Copy command">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="auth-step">
                     <div class="step-header">
-                        <div class="step-number">2</div>
-                        <h3>認証コードの入力</h3>
+                        <div class="step-number">02</div>
+                        <div class="step-info">
+                            <h3>Access Code Entry</h3>
+                            <p>Enter your 6-digit authentication code</p>
+                        </div>
                     </div>
                     <div class="step-content">
                         <form id="loginForm" class="auth-form">
                             <div class="form-group">
-                                <p>Discordに表示された6桁の認証コードを入力してください</p>
-                                <div class="auth-code-group">
-                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
-                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
-                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
-                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
-                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
-                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
-                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
-                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
-                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
-                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
-                                    <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required 
-                                           autocomplete="off" spellcheck="false" autocapitalize="characters">
+                                <div class="auth-code-container">
+                                    <div class="code-inputs">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
+                                    </div>
                                 </div>
                                 <div id="loginError" class="error-message" role="alert"></div>
                             </div>
-                            <button type="submit" class="submit-btn primary">
-                                <span class="button-content">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                                        <polyline points="10 17 15 12 10 7"></polyline>
-                                        <line x1="15" y1="12" x2="3" y2="12"></line>
-                                    </svg>
-                                    ログイン
-                                </span>
+                            <button type="submit" class="submit-btn">
+                                <span class="btn-text">AUTHENTICATE</span>
+                                <div class="btn-glow"></div>
                             </button>
                         </form>
                     </div>
@@ -83,7 +88,12 @@
             </div>
 
             <footer class="auth-footer">
-                <p>※ログインにはDiscordアカウントが必要です</p>
+                <div class="security-info">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <span>Secured by Discord OAuth</span>
+                </div>
             </footer>
         </main>
     </div>
@@ -92,17 +102,12 @@
         function copyCommand() {
             navigator.clipboard.writeText('/get-auth');
             const btn = document.querySelector('.copy-btn');
-            const text = btn.querySelector('.copy-text');
             btn.classList.add('copied');
-            text.textContent = 'コピーしました！';
-            setTimeout(() => {
-                btn.classList.remove('copied');
-                text.textContent = 'コピー';
-            }, 2000);
+            setTimeout(() => btn.classList.remove('copied'), 2000);
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            const authInputs = document.querySelectorAll('.auth-code-group input');
+            const authInputs = document.querySelectorAll('.code-inputs input');
             
             document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -114,17 +119,18 @@
                     
                 const errorElem = document.getElementById('loginError');
                 const submitBtn = e.target.querySelector('.submit-btn');
-                const buttonContent = submitBtn.querySelector('.button-content');
+                const btnText = submitBtn.querySelector('.btn-text');
                 errorElem.textContent = '';
                 
                 if (authCode.length !== 6) {
-                    errorElem.textContent = '認証コードは6文字で入力してください';
+                    errorElem.textContent = 'Authentication code must be 6 characters';
                     return;
                 }
                 
                 try {
                     submitBtn.disabled = true;
-                    buttonContent.innerHTML = '<div class="loading-spinner"></div><span>認証中...</span>';
+                    submitBtn.classList.add('loading');
+                    btnText.textContent = 'AUTHENTICATING...';
                     
                     const res = await fetch('/api/auth/login', {
                         method: 'POST',
@@ -133,27 +139,21 @@
                     });
                     
                     if (res.ok) {
-                        window.location.href = '/dashboard';
+                        btnText.textContent = 'ACCESS GRANTED';
+                        setTimeout(() => window.location.href = '/dashboard', 500);
                     } else {
                         const data = await res.json();
-                        errorElem.textContent = data.error || '認証に失敗しました';
+                        errorElem.textContent = data.error || 'Authentication failed';
                         authInputs[0].focus();
                     }
                 } catch (error) {
-                    console.error('ログインエラー:', error);
-                    errorElem.textContent = '通信エラーが発生しました。もう一度お試しください。';
+                    console.error('Login error:', error);
+                    errorElem.textContent = 'Connection error. Please try again.';
                     authInputs[0].focus();
                 } finally {
                     submitBtn.disabled = false;
-                    buttonContent.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" 
-                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                            <polyline points="10 17 15 12 10 7"></polyline>
-                            <line x1="15" y1="12" x2="3" y2="12"></line>
-                        </svg>
-                        ログイン
-                    `;
+                    submitBtn.classList.remove('loading');
+                    btnText.textContent = 'AUTHENTICATE';
                 }
             });
 
