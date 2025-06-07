@@ -101,49 +101,89 @@ function initializeDateTimePicker() {
     const dateTimeInput = document.getElementById('dateTime');
     const calendarTrigger = document.querySelector('.calendar-trigger');
 
+    // Flatpickrが読み込まれているかチェック
+    if (typeof flatpickr === 'undefined') {
+        console.error('Flatpickr is not loaded');
+        return;
+    }
+
     dateTimePicker = flatpickr(dateTimeInput, {
         enableTime: true,
         dateFormat: "Y-m-d H:i",
         time_24hr: true,
-        locale: "ja",
+        locale: flatpickr.l10ns.ja || "ja",
         minDate: "today",
-        defaultHour: new Date().getHours() + 1,
+        defaultHour: Math.min(new Date().getHours() + 1, 23),
         defaultMinute: 0,
         position: 'auto',
         showMonths: 1,
-        animate: true,
+        animate: false,
+        static: false,
+        appendTo: document.body,
+        clickOpens: true,
+        allowInput: false,
         nextArrow: `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M9 18l6-6-6-6"/>
             </svg>
         `,
         prevArrow: `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M15 18l-6-6 6-6"/>
             </svg>
         `,
-        onChange: function(selectedDates, dateStr) {
+        onChange: function(selectedDates, dateStr, instance) {
             const now = new Date();
-            if (selectedDates[0] < now) {
+            if (selectedDates.length > 0 && selectedDates[0] <= now) {
                 dateTimeInput.parentElement.classList.add('error');
                 showFormError('過去の日時は選択できません。', dateTimeInput);
-                dateTimePicker.clear();
+                setTimeout(() => {
+                    instance.clear();
+                }, 100);
                 return;
             }
             dateTimeInput.parentElement.classList.remove('error');
             clearFormErrors();
+            
+            // 値が設定されたら入力フィールドを更新
+            if (selectedDates.length > 0) {
+                dateTimeInput.value = dateStr;
+            }
         },
-        onOpen: function() {
+        onReady: function(selectedDates, dateStr, instance) {
+            console.log('Flatpickr calendar ready');
+            // カレンダーが準備完了したらボタンにイベント追加
+            if (calendarTrigger) {
+                calendarTrigger.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    instance.open();
+                });
+            }
+        },
+        onOpen: function(selectedDates, dateStr, instance) {
             dateTimeInput.parentElement.classList.add('calendar-open');
+            console.log('Calendar opened');
         },
-        onClose: function() {
+        onClose: function(selectedDates, dateStr, instance) {
             dateTimeInput.parentElement.classList.remove('calendar-open');
+            console.log('Calendar closed');
         }
     });
 
-    // カレンダーアイコンクリックでも開けるように
-    calendarTrigger.addEventListener('click', () => {
-        dateTimePicker.open();
+    // 入力フィールドクリックでもカレンダーを開く
+    dateTimeInput.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (dateTimePicker) {
+            dateTimePicker.open();
+        }
+    });
+
+    // フォーカス時にもカレンダーを開く
+    dateTimeInput.addEventListener('focus', (e) => {
+        if (dateTimePicker) {
+            dateTimePicker.open();
+        }
     });
 }
 

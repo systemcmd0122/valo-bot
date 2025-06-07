@@ -70,6 +70,131 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* Flatpickrカレンダーのスタイル */
+.flatpickr-calendar {
+  background: var(--valo-dark-gray) !important;
+  border: 2px solid var(--valo-red) !important;
+  border-radius: var(--border-radius) !important;
+  box-shadow: var(--shadow-heavy) !important;
+  color: var(--valo-white) !important;
+  font-family: 'Rajdhani', sans-serif !important;
+}
+
+.flatpickr-calendar.open {
+  z-index: 9999 !important;
+}
+
+.flatpickr-months {
+  background: var(--valo-black) !important;
+  border-bottom: 1px solid var(--valo-red) !important;
+}
+
+.flatpickr-current-month {
+  color: var(--valo-white) !important;
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+  background: var(--valo-dark-gray) !important;
+  color: var(--valo-white) !important;
+  border: 1px solid var(--valo-red) !important;
+}
+
+.flatpickr-current-month .numInputWrapper {
+  color: var(--valo-white) !important;
+}
+
+.flatpickr-weekdays {
+  background: var(--valo-black) !important;
+}
+
+.flatpickr-weekday {
+  color: var(--valo-light-gray) !important;
+  font-weight: 600 !important;
+}
+
+.flatpickr-day {
+  color: var(--valo-white) !important;
+  border: 1px solid transparent !important;
+}
+
+.flatpickr-day:hover {
+  background: var(--valo-red) !important;
+  color: var(--valo-white) !important;
+  border-color: var(--valo-red) !important;
+}
+
+.flatpickr-day.selected {
+  background: var(--valo-red) !important;
+  border-color: var(--valo-red) !important;
+  color: var(--valo-white) !important;
+}
+
+.flatpickr-day.today {
+  border-color: var(--valo-blue) !important;
+  color: var(--valo-blue) !important;
+}
+
+.flatpickr-day.disabled {
+  color: var(--valo-gray) !important;
+}
+
+.flatpickr-time {
+  background: var(--valo-black) !important;
+  border-top: 1px solid var(--valo-red) !important;
+}
+
+.flatpickr-time input {
+  background: var(--valo-dark-gray) !important;
+  color: var(--valo-white) !important;
+  border: 1px solid var(--valo-gray) !important;
+}
+
+.flatpickr-time input:focus {
+  border-color: var(--valo-red) !important;
+}
+
+.flatpickr-time .flatpickr-time-separator {
+  color: var(--valo-white) !important;
+}
+
+.flatpickr-prev-month,
+.flatpickr-next-month {
+  color: var(--valo-white) !important;
+  fill: var(--valo-white) !important;
+}
+
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+  color: var(--valo-red) !important;
+  fill: var(--valo-red) !important;
+}
+
+/* セレクトボックスの改善 */
+.form-group select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 16px;
+  padding-right: 3rem;
+}
+
+.form-group select option {
+  background: var(--valo-dark-gray);
+  color: var(--valo-white);
+  padding: 0.5rem;
+}
+
+.select-wrapper {
+  position: relative;
+}
+
+.select-wrapper svg {
+  display: none;
+}
+
 /* 認証画面 */
 .auth-container {
   min-height: 100vh;
@@ -310,11 +435,17 @@ body {
   color: var(--valo-black);
 }
 
+.auth-code-container {
+  margin: 2rem 0;
+}
+
 .code-inputs {
   display: flex;
   gap: 0.8rem;
   justify-content: center;
-  margin: 1.5rem 0;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: nowrap;
 }
 
 .code-inputs input {
@@ -330,6 +461,7 @@ body {
   text-transform: uppercase;
   transition: var(--transition);
   font-family: 'Rajdhani', sans-serif;
+  flex-shrink: 0;
 }
 
 .code-inputs input:focus {
@@ -338,6 +470,16 @@ body {
   box-shadow: 0 0 0 3px rgba(255, 70, 85, 0.3), var(--shadow-glow);
   transform: scale(1.05);
   background: rgba(255, 70, 85, 0.1);
+}
+
+.code-inputs input:valid {
+  border-color: var(--valo-green);
+  box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.2);
+}
+
+.code-inputs input:invalid:not(:placeholder-shown) {
+  border-color: var(--valo-red);
+  box-shadow: 0 0 0 2px rgba(255, 70, 85, 0.2);
 }
 
 .submit-btn {

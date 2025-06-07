@@ -69,14 +69,15 @@
                     <div class="step-content">
                         <form id="loginForm" class="auth-form">
                             <div class="form-group">
+                                <label for="authCode">6桁の認証コードを入力:</label>
                                 <div class="auth-code-container">
-                                    <div class="code-inputs">
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード1桁目">
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード2桁目">
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード3桁目">
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード4桁目">
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード5桁目">
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード6桁目">
+                                    <div class="code-inputs" id="codeInputs">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード1桁目" autocomplete="off">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード2桁目" autocomplete="off">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード3桁目" autocomplete="off">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード4桁目" autocomplete="off">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード5桁目" autocomplete="off">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード6桁目" autocomplete="off">
                                     </div>
                                 </div>
                                 <div id="loginError" class="error-message" role="alert"></div>
@@ -184,27 +185,120 @@
                     const value = e.target.value;
                     
                     // 数字とアルファベットのみ許可
-                    if (!/^[A-Za-z0-9]$/.test(value)) {
+                    if (value && !/^[A-Za-z0-9]$/.test(value)) {
                         e.target.value = '';
                         return;
                     }
                     
-                    e.target.value = value.toUpperCase();
-                    
-                    // 次の入力欄に自動フォーカス
-                    if (value && index < authInputs.length - 1) {
-                        authInputs[index + 1].focus();
+                    if (value) {
+                        e.target.value = value.toUpperCase();
+                        
+                        // 次の入力欄に自動フォーカス
+                        if (index < authInputs.length - 1) {
+                            authInputs[index + 1].focus();
+                        }
                     }
                     
                     // エラーメッセージをクリア
                     if (document.getElementById('loginError').textContent) {
                         document.getElementById('loginError').textContent = '';
                     }
+                    
+                    // 入力完了チェック
+                    checkAllInputsFilled();
                 });
                 
                 input.addEventListener('keydown', (e) => {
                     // Backspaceで前の入力欄に戻る
                     if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                        authInputs[index - 1].focus();
+                        authInputs[index - 1].value = '';
+                    }
+                    
+                    // Enterで送信
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (checkAllInputsFilled()) {
+                            document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                        }
+                    }
+                    
+                    // 左右矢印キーでナビゲーション
+                    if (e.key === 'ArrowLeft' && index > 0) {
+                        e.preventDefault();
+                        authInputs[index - 1].focus();
+                    }
+                    if (e.key === 'ArrowRight' && index < authInputs.length - 1) {
+                        e.preventDefault();
+                        authInputs[index + 1].focus();
+                    }
+                });
+                
+                // フォーカス時に既存のテキストを選択
+                input.addEventListener('focus', (e) => {
+                    e.target.select();
+                });
+            });
+            
+            // 全ての入力欄が埋まっているかチェック
+            function checkAllInputsFilled() {
+                const allFilled = Array.from(authInputs).every(input => input.value.length === 1);
+                const submitBtn = document.querySelector('.submit-btn');
+                
+                if (allFilled) {
+                    submitBtn.classList.add('ready');
+                } else {
+                    submitBtn.classList.remove('ready');
+                }
+                
+                return allFilled;
+            }
+            
+            // ペースト処理の改善
+            authInputs.forEach((input, index) => {
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const pastedText = (e.clipboardData || window.clipboardData)
+                        .getData('text')
+                        .toUpperCase()
+                        .replace(/[^A-Z0-9]/g, '')
+                        .slice(0, 6);
+                    
+                    if (pastedText.length >= 1) {
+                        // 全ての入力欄をクリア
+                        authInputs.forEach(inp => inp.value = '');
+                        
+                        // ペーストしたテキストを各入力欄に配置
+                        for (let i = 0; i < Math.min(pastedText.length, authInputs.length); i++) {
+                            authInputs[i].value = pastedText[i];
+                        }
+                        
+                        // 最後の入力欄、または全部埋まっていない場合は次の空欄にフォーカス
+                        const nextEmptyIndex = authInputs.findIndex(inp => !inp.value);
+                        if (nextEmptyIndex !== -1) {
+                            authInputs[nextEmptyIndex].focus();
+                        } else {
+                            authInputs[authInputs.length - 1].focus();
+                        }
+                        
+                        checkAllInputsFilled();
+                    }
+                });
+            });
+            
+            // 初期フォーカス
+            if (authInputs.length > 0) {
+                authInputs[0].focus();
+            }
+            
+            // キーボードイベントで最初の入力欄にフォーカス
+            document.addEventListener('keydown', (e) => {
+                if (e.key.match(/^[A-Za-z0-9]$/) && !e.target.matches('input')) {
+                    authInputs[0].focus();
+                    authInputs[0].value = e.key.toUpperCase();
+                    authInputs[0].dispatchEvent(new Event('input'));
+                }
+            }); 'Backspace' && !e.target.value && index > 0) {
                         authInputs[index - 1].focus();
                     }
                     
