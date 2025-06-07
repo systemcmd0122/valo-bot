@@ -1,2 +1,9 @@
 language = "nodejs"
 run = "node index.js"
+modules = ["nodejs-20", "web"]
+
+[deployment]
+run = ["sh", "-c", "node index.js"]
+
+[nix]
+channel = "stable-24_05"
