@@ -4,11 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VALORANT Team Scheduler</title>
+    <title>VALORANT チームスケジューラ</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="description" content="VALORANT チーム スケジュール管理システム">
+    <meta name="theme-color" content="#ff4655">
 </head>
 <body>
     <div class="auth-container">
@@ -17,16 +19,16 @@
             <header class="auth-header">
                 <div class="brand">
                     <div class="logo-container">
-                        <img src="/icon.jpg" alt="VALORANT Logo" class="logo">
+                        <img src="/icon.jpg" alt="VALORANT ロゴ" class="logo">
                         <div class="logo-glow"></div>
                     </div>
                     <div class="brand-text">
                         <h1>VALORANT</h1>
-                        <span class="subtitle">TEAM SCHEDULER</span>
+                        <span class="subtitle">チームスケジューラ</span>
                     </div>
                 </div>
                 <p class="auth-description">
-                    Secure tactical coordination platform
+                    セキュアな戦術調整プラットフォーム
                 </p>
             </header>
 
@@ -35,20 +37,21 @@
                     <div class="step-header">
                         <div class="step-number">01</div>
                         <div class="step-info">
-                            <h3>Discord Authentication</h3>
-                            <p>Get your secure access key</p>
+                            <h3>Discord 認証</h3>
+                            <p>セキュアアクセスキーを取得</p>
                         </div>
                     </div>
                     <div class="step-content">
                         <div class="command-section">
-                            <label>Execute command in Discord:</label>
+                            <label>Discord でコマンドを実行:</label>
                             <div class="command-box">
                                 <code>/get-auth</code>
-                                <button class="copy-btn" onclick="copyCommand()" aria-label="Copy command">
+                                <button class="copy-btn" onclick="copyCommand()" aria-label="コマンドをコピー">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                                     </svg>
+                                    コピー
                                 </button>
                             </div>
                         </div>
@@ -59,8 +62,8 @@
                     <div class="step-header">
                         <div class="step-number">02</div>
                         <div class="step-info">
-                            <h3>Access Code Entry</h3>
-                            <p>Enter your 6-digit authentication code</p>
+                            <h3>アクセスコード入力</h3>
+                            <p>6桁の認証コードを入力してください</p>
                         </div>
                     </div>
                     <div class="step-content">
@@ -68,18 +71,18 @@
                             <div class="form-group">
                                 <div class="auth-code-container">
                                     <div class="code-inputs">
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
-                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required>
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード1桁目">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード2桁目">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード3桁目">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード4桁目">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード5桁目">
+                                        <input type="text" maxlength="1" inputmode="text" pattern="[A-Za-z0-9]" required aria-label="認証コード6桁目">
                                     </div>
                                 </div>
                                 <div id="loginError" class="error-message" role="alert"></div>
                             </div>
                             <button type="submit" class="submit-btn">
-                                <span class="btn-text">AUTHENTICATE</span>
+                                <span class="btn-text">認証開始</span>
                                 <div class="btn-glow"></div>
                             </button>
                         </form>
@@ -92,7 +95,7 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                     </svg>
-                    <span>Secured by Discord OAuth</span>
+                    <span>Discord OAuth により保護</span>
                 </div>
             </footer>
         </main>
@@ -100,14 +103,30 @@
 
     <script>
         function copyCommand() {
-            navigator.clipboard.writeText('/get-auth');
-            const btn = document.querySelector('.copy-btn');
-            btn.classList.add('copied');
-            setTimeout(() => btn.classList.remove('copied'), 2000);
+            navigator.clipboard.writeText('/get-auth').then(() => {
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    コピー完了!
+                `;
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            }).catch(() => {
+                alert('コピーに失敗しました。手動でコマンドをコピーしてください。');
+            });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             const authInputs = document.querySelectorAll('.code-inputs input');
+            
+            // フォーカス管理
+            authInputs[0].focus();
             
             document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -123,14 +142,15 @@
                 errorElem.textContent = '';
                 
                 if (authCode.length !== 6) {
-                    errorElem.textContent = 'Authentication code must be 6 characters';
+                    errorElem.textContent = '認証コードは6文字で入力してください';
+                    authInputs[0].focus();
                     return;
                 }
                 
                 try {
                     submitBtn.disabled = true;
                     submitBtn.classList.add('loading');
-                    btnText.textContent = 'AUTHENTICATING...';
+                    btnText.textContent = '認証中...';
                     
                     const res = await fetch('/api/auth/login', {
                         method: 'POST',
@@ -139,28 +159,31 @@
                     });
                     
                     if (res.ok) {
-                        btnText.textContent = 'ACCESS GRANTED';
-                        setTimeout(() => window.location.href = '/dashboard', 500);
+                        btnText.textContent = 'アクセス許可';
+                        setTimeout(() => window.location.href = '/dashboard', 800);
                     } else {
                         const data = await res.json();
-                        errorElem.textContent = data.error || 'Authentication failed';
+                        errorElem.textContent = data.error || '認証に失敗しました';
+                        authInputs.forEach(input => input.value = '');
                         authInputs[0].focus();
                     }
                 } catch (error) {
-                    console.error('Login error:', error);
-                    errorElem.textContent = 'Connection error. Please try again.';
+                    console.error('ログインエラー:', error);
+                    errorElem.textContent = '接続エラーが発生しました。もう一度お試しください。';
                     authInputs[0].focus();
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('loading');
-                    btnText.textContent = 'AUTHENTICATE';
+                    btnText.textContent = '認証開始';
                 }
             });
 
+            // 入力処理の改善
             authInputs.forEach((input, index) => {
                 input.addEventListener('input', (e) => {
                     const value = e.target.value;
                     
+                    // 数字とアルファベットのみ許可
                     if (!/^[A-Za-z0-9]$/.test(value)) {
                         e.target.value = '';
                         return;
@@ -168,17 +191,30 @@
                     
                     e.target.value = value.toUpperCase();
                     
+                    // 次の入力欄に自動フォーカス
                     if (value && index < authInputs.length - 1) {
                         authInputs[index + 1].focus();
+                    }
+                    
+                    // エラーメッセージをクリア
+                    if (document.getElementById('loginError').textContent) {
+                        document.getElementById('loginError').textContent = '';
                     }
                 });
                 
                 input.addEventListener('keydown', (e) => {
+                    // Backspaceで前の入力欄に戻る
                     if (e.key === 'Backspace' && !e.target.value && index > 0) {
                         authInputs[index - 1].focus();
                     }
+                    
+                    // Enterで送信
+                    if (e.key === 'Enter' && index === authInputs.length - 1) {
+                        document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+                    }
                 });
                 
+                // ペースト処理
                 input.addEventListener('paste', (e) => {
                     e.preventDefault();
                     const pastedText = (e.clipboardData || window.clipboardData)
@@ -189,9 +225,12 @@
                         
                     for (let i = 0; i < pastedText.length && i < authInputs.length; i++) {
                         authInputs[i].value = pastedText[i];
-                        if (i < authInputs.length - 1) {
-                            authInputs[i + 1].focus();
-                        }
+                    }
+                    
+                    // 最後の入力欄にフォーカス
+                    const lastFilledIndex = Math.min(pastedText.length - 1, authInputs.length - 1);
+                    if (lastFilledIndex >= 0) {
+                        authInputs[lastFilledIndex].focus();
                     }
                 });
             });
