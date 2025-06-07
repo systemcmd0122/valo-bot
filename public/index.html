@@ -298,35 +298,6 @@
                     authInputs[0].value = e.key.toUpperCase();
                     authInputs[0].dispatchEvent(new Event('input'));
                 }
-            }); 'Backspace' && !e.target.value && index > 0) {
-                        authInputs[index - 1].focus();
-                    }
-                    
-                    // Enterで送信
-                    if (e.key === 'Enter' && index === authInputs.length - 1) {
-                        document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-                    }
-                });
-                
-                // ペースト処理
-                input.addEventListener('paste', (e) => {
-                    e.preventDefault();
-                    const pastedText = (e.clipboardData || window.clipboardData)
-                        .getData('text')
-                        .toUpperCase()
-                        .replace(/[^A-Z0-9]/g, '')
-                        .slice(0, 6);
-                        
-                    for (let i = 0; i < pastedText.length && i < authInputs.length; i++) {
-                        authInputs[i].value = pastedText[i];
-                    }
-                    
-                    // 最後の入力欄にフォーカス
-                    const lastFilledIndex = Math.min(pastedText.length - 1, authInputs.length - 1);
-                    if (lastFilledIndex >= 0) {
-                        authInputs[lastFilledIndex].focus();
-                    }
-                });
             });
         });
     </script>

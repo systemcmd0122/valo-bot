@@ -448,6 +448,21 @@ body {
   flex-wrap: nowrap;
 }
 
+/* ペースト用のヘルパーテキスト */
+.auth-code-container::after {
+  content: "💡 6桁のコードを直接ペースト可能";
+  display: block;
+  color: var(--valo-light-gray);
+  font-size: 0.85rem;
+  text-align: center;
+  margin-top: 0.5rem;
+  opacity: 0.8;
+}tent: center;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: nowrap;
+}
+
 .code-inputs input {
   width: 3.8rem;
   height: 3.8rem;
