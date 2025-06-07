@@ -80,8 +80,12 @@ body {
   font-family: 'Rajdhani', sans-serif !important;
 }
 
+.flatpickr-calendar {
+  z-index: 99999 !important;
+}
+
 .flatpickr-calendar.open {
-  z-index: 9999 !important;
+  z-index: 99999 !important;
 }
 
 .flatpickr-months {
@@ -1026,6 +1030,7 @@ body {
   box-shadow: var(--shadow-heavy);
   color: var(--valo-white);
   position: relative;
+  z-index: 1000;
 }
 
 .modal::backdrop {
