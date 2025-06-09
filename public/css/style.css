@@ -452,12 +452,15 @@ body {
 }
 
 .code-inputs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
   gap: 0.8rem;
   justify-content: center;
   align-items: center;
   margin-bottom: 1rem;
-  flex-wrap: nowrap;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* ペースト用のヘルパーテキスト */
@@ -469,14 +472,11 @@ body {
   text-align: center;
   margin-top: 0.5rem;
   opacity: 0.8;
-}tent: center;
-  align-items: center;
-  margin-bottom: 1rem;
-  flex-wrap: nowrap;
 }
 
 .code-inputs input {
-  width: 3.8rem;
+  width: 100%;
+  min-width: 3rem;
   height: 3.8rem;
   text-align: center;
   border: 2px solid var(--valo-gray);
@@ -1171,27 +1171,60 @@ body {
   color: var(--valo-light-gray);
 }
 
-.datetime-input {
-  position: relative;
+.datetime-input-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
 }
 
-.calendar-trigger {
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
+.date-input-wrapper,
+.time-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sub-label {
+  font-size: 0.8rem;
   color: var(--valo-light-gray);
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: var(--border-radius);
-  transition: var(--transition);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
 }
 
-.calendar-trigger:hover {
-  color: var(--valo-red);
-  background: rgba(255, 70, 85, 0.1);
+input[type="date"],
+input[type="time"] {
+  padding: 1rem;
+  border: 2px solid var(--valo-gray);
+  border-radius: var(--border-radius);
+  background: var(--valo-black);
+  color: var(--valo-white);
+  font-size: 1rem;
+  transition: var(--transition);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 500;
+}
+
+input[type="date"]:focus,
+input[type="time"]:focus {
+  border-color: var(--valo-red);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 70, 85, 0.3);
+  background: rgba(255, 70, 85, 0.05);
+}
+
+/* WebKit browsers (Chrome, Safari) */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* Firefox */
+input[type="date"]::-moz-calendar-picker,
+input[type="time"]::-moz-time-picker {
+  filter: invert(1);
 }
 
 .form-error {
@@ -1338,16 +1371,21 @@ body {
     grid-template-columns: 1fr;
   }
   
+  .datetime-input-group {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
   .modal-footer {
     grid-template-columns: 1fr;
   }
   
   .code-inputs {
     gap: 0.5rem;
+    max-width: 350px;
   }
   
   .code-inputs input {
-    width: 3rem;
     height: 3rem;
     font-size: 1.2rem;
   }
@@ -1371,8 +1409,12 @@ body {
     align-self: flex-start;
   }
   
+  .code-inputs {
+    gap: 0.4rem;
+    max-width: 300px;
+  }
+  
   .code-inputs input {
-    width: 2.5rem;
     height: 2.5rem;
     font-size: 1rem;
   }
