@@ -157,18 +157,17 @@
                             ミッション日時
                             <span class="required">*</span>
                         </label>
-                        <div class="datetime-input">
-                            <input type="text" id="dateTime" name="dateTime" required 
-                                   placeholder="日時を選択または直接入力 (例: 2024-12-25 20:00)">
-                            <button type="button" class="calendar-trigger" aria-label="カレンダーを開く">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                                    <line x1="16" y1="2" x2="16" y2="6"/>
-                                    <line x1="8" y1="2" x2="8" y2="6"/>
-                                    <line x1="3" y1="10" x2="21" y2="10"/>
-                                </svg>
-                            </button>
+                        <div class="datetime-input-group">
+                            <div class="date-input-wrapper">
+                                <label for="missionDate" class="sub-label">日付</label>
+                                <input type="date" id="missionDate" name="missionDate" required>
+                            </div>
+                            <div class="time-input-wrapper">
+                                <label for="missionTime" class="sub-label">時刻</label>
+                                <input type="time" id="missionTime" name="missionTime" required value="20:00">
+                            </div>
                         </div>
+                        <input type="hidden" id="dateTime" name="dateTime">
                     </div>
 
                     <div class="form-group full-width">
