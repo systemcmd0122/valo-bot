@@ -1,9 +1,7 @@
-
 // グローバル変数
 let currentUser = null;
 let schedules = [];
-let scheduleModal = null;
-let dateTimePicker = null;
+let scheduleForm = null;
 let currentFilter = 'upcoming';
 
 // DOM読み込み後の初期化
@@ -28,10 +26,12 @@ async function initializeApp() {
     currentUser = authStatus.user;
     document.getElementById('username').textContent = currentUser.username;
 
+    // スケジュールフォーム初期化
+    scheduleForm = new ScheduleForm();
+    scheduleForm.form.addEventListener('scheduleCreated', handleScheduleCreated);
+
     // UI初期化
     initializeEventListeners();
-    initializeDateTimePicker();
-    initializeModal();
 
     // スケジュール読み込み
     await loadSchedules();
@@ -51,19 +51,11 @@ async function checkAuthStatus() {
 // イベントリスナー初期化
 function initializeEventListeners() {
     // ログアウトボタン
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-        try {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            window.location.href = '/';
-        } catch (error) {
-            console.error('ログアウトエラー:', error);
-            alert('ログアウトに失敗しました。');
-        }
-    });
+    document.getElementById('logoutBtn').addEventListener('click', handleLogout);
 
     // 新規スケジュール作成ボタン
     document.getElementById('newScheduleBtn').addEventListener('click', () => {
-        openModal();
+        document.getElementById('scheduleModal').showModal();
     });
 
     // フィルタータブ
@@ -75,97 +67,46 @@ function initializeEventListeners() {
 
     // モーダル閉じるボタン
     document.querySelectorAll('[data-close-modal]').forEach(btn => {
-        btn.addEventListener('click', closeModal);
+        btn.addEventListener('click', () => {
+            document.getElementById('scheduleModal').close();
+        });
     });
 
     // モーダル外クリックで閉じる
     document.getElementById('scheduleModal').addEventListener('click', (e) => {
         if (e.target === e.currentTarget) {
-            closeModal();
+            e.target.close();
         }
     });
 
     // ESCキーでモーダルを閉じる
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && scheduleModal && scheduleModal.open) {
-            closeModal();
-        }
-    });
-
-    // フォーム送信
-    document.getElementById('scheduleForm').addEventListener('submit', handleFormSubmit);
-}
-
-// 日時ピッカー初期化
-function initializeDateTimePicker() {
-    const dateInput = document.getElementById('missionDate');
-    const timeInput = document.getElementById('missionTime');
-    const hiddenDateTimeInput = document.getElementById('dateTime');
-
-    // 明日の日付をデフォルトに設定
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-    dateInput.value = tomorrowStr;
-
-    // 今日の日付を最小値に設定
-    const today = new Date().toISOString().split('T')[0];
-    dateInput.min = today;
-
-    // 日付や時刻が変更されたときにhiddenフィールドを更新
-    function updateDateTime() {
-        const dateValue = dateInput.value;
-        const timeValue = timeInput.value;
-        
-        if (dateValue && timeValue) {
-            const dateTime = new Date(`${dateValue}T${timeValue}`);
-            hiddenDateTimeInput.value = dateTime.toISOString();
-            
-            // バリデーション
-            const now = new Date();
-            if (dateTime <= now) {
-                dateInput.parentElement.parentElement.classList.add('error');
-                showFormError('過去の日時は選択できません。', dateInput);
-            } else {
-                dateInput.parentElement.parentElement.classList.remove('error');
-                clearFormErrors();
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('scheduleModal');
+            if (modal.open) {
+                modal.close();
             }
         }
-    }
-
-    dateInput.addEventListener('change', updateDateTime);
-    timeInput.addEventListener('change', updateDateTime);
-
-    // 初期値を設定
-    updateDateTime();
+    });
 }
 
-
-
-// モーダル初期化
-function initializeModal() {
-    scheduleModal = document.getElementById('scheduleModal');
+// スケジュール作成完了ハンドラ
+async function handleScheduleCreated(event) {
+    const newSchedule = event.detail;
+    schedules.push(newSchedule);
+    document.getElementById('scheduleModal').close();
+    await renderSchedules();
+    showSuccessMessage('新しいミッションが作成されました！');
 }
 
-// モーダルを開く
-function openModal() {
-    if (scheduleModal) {
-        document.getElementById('scheduleForm').reset();
-        clearFormErrors();
-        scheduleModal.showModal();
-        
-        // フォーカスをタイトル入力欄に設定
-        setTimeout(() => {
-            document.getElementById('title').focus();
-        }, 100);
-    }
-}
-
-// モーダルを閉じる
-function closeModal() {
-    if (scheduleModal && scheduleModal.open) {
-        scheduleModal.close();
-        clearFormErrors();
+// ログアウト処理
+async function handleLogout() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/';
+    } catch (error) {
+        console.error('ログアウトエラー:', error);
+        showError('ログアウトに失敗しました。');
     }
 }
 
@@ -175,9 +116,8 @@ function setActiveFilter(filter) {
     
     // タブのアクティブ状態更新
     document.querySelectorAll('.filter-tab').forEach(tab => {
-        tab.classList.remove('active');
+        tab.classList.toggle('active', tab.dataset.filter === filter);
     });
-    document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
     
     // スケジュール表示更新
     renderSchedules();
@@ -194,423 +134,72 @@ async function loadSchedules() {
         }
         
         schedules = await response.json();
-        renderSchedules();
+        await renderSchedules();
     } catch (error) {
         console.error('スケジュール読み込みエラー:', error);
         showError('スケジュールの読み込みに失敗しました。');
+    } finally {
+        hideLoading();
     }
 }
 
 // スケジュール表示
-function renderSchedules() {
+async function renderSchedules() {
     const container = document.getElementById('scheduleList');
-    const filteredSchedules = getFilteredSchedules();
+    container.innerHTML = '';
+
+    const now = new Date();
+    const filteredSchedules = filterSchedules(schedules, currentFilter, now);
     
     if (filteredSchedules.length === 0) {
-        container.innerHTML = `
-            <div class="no-schedules">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                </svg>
-                <h3>スケジュールがありません</h3>
-                <p>新規ミッションボタンから最初のスケジュールを作成してください。</p>
-            </div>
-        `;
+        container.innerHTML = '<div class="no-schedules">スケジュールがありません</div>';
         return;
     }
-    
-    container.innerHTML = '';
-    filteredSchedules.forEach(schedule => {
-        const cardElement = createScheduleCard(schedule);
-        container.appendChild(cardElement);
-    });
+
+    for (const schedule of filteredSchedules) {
+        const card = await createScheduleCard(schedule);
+        container.appendChild(card);
+    }
 }
 
-// フィルター済みスケジュール取得
-function getFilteredSchedules() {
-    const now = new Date();
+// スケジュールフィルタリング
+function filterSchedules(schedules, filter, now) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     
-    let filtered = schedules.filter(schedule => new Date(schedule.dateTime) > now);
-    
-    switch (currentFilter) {
-        case 'today':
-            const todayEnd = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-            filtered = filtered.filter(schedule => {
-                const scheduleDate = new Date(schedule.dateTime);
-                return scheduleDate >= today && scheduleDate < todayEnd;
-            });
-            break;
-        case 'tomorrow':
-            const tomorrowEnd = new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
-            filtered = filtered.filter(schedule => {
-                const scheduleDate = new Date(schedule.dateTime);
-                return scheduleDate >= tomorrow && scheduleDate < tomorrowEnd;
-            });
-            break;
-        case 'my':
-            filtered = filtered.filter(schedule => 
-                schedule.participants.includes(currentUser.discordId)
-            );
-            break;
-        case 'upcoming':
-        default:
-            // すでにフィルター済み（未来のスケジュール）
-            break;
-    }
-    
-    return filtered.sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
-}
-
-// スケジュールカード作成
-function createScheduleCard(schedule) {
-    const template = document.getElementById('scheduleCardTemplate');
-    const card = template.content.cloneNode(true);
-    const scheduleDate = new Date(schedule.dateTime);
-    const now = new Date();
-    
-    const isCreator = schedule.createdById === currentUser.discordId;
-    const isParticipant = schedule.participants.includes(currentUser.discordId);
-    const isAbsent = schedule.absentees.includes(currentUser.discordId);
-    const isPast = scheduleDate <= now;
-    
-    // カード内容の設定
-    card.querySelector('.title').textContent = schedule.title;
-    card.querySelector('.type-badge').textContent = schedule.type;
-    card.querySelector('.datetime').textContent = formatDateTime(scheduleDate);
-    card.querySelector('.description').textContent = schedule.description || '詳細なし';
-    
-    // 参加者数表示
-    const participantCount = card.querySelector('.count');
-    participantCount.textContent = `参加: ${schedule.participants.length}人 / 不参加: ${schedule.absentees.length}人`;
-    
-    // 参加者リストをツールチップに表示
-    if (schedule.participants.length > 0) {
-        const participantsList = schedule.participants.map(id => {
-            const isCreatorParticipant = id === schedule.createdById;
-            return `${id}${isCreatorParticipant ? ' (作成者)' : ''}`;
-        }).join('\n');
-        participantCount.title = `参加者:\n${participantsList}`;
-    } else {
-        participantCount.title = '参加者なし';
-    }
-    
-    // 参加ステータス表示
-    const statusText = isCreator ? '作成者' : 
-                     isParticipant ? '参加予定' :
-                     isAbsent ? '不参加' : '未回答';
-    card.querySelector('.participation-status').textContent = statusText;
-    
-    // ボタンの設定
-    const joinBtn = card.querySelector('.join-btn');
-    const cancelBtn = card.querySelector('.cancel-btn');
-    
-    if (isPast) {
-        joinBtn.disabled = true;
-        cancelBtn.disabled = true;
-        joinBtn.title = '開始時刻を過ぎているため参加できません';
-        cancelBtn.title = '開始時刻を過ぎているためキャンセルできません';
-        joinBtn.textContent = '終了済み';
-        cancelBtn.textContent = '終了済み';
-    } else {
-        joinBtn.disabled = isParticipant;
-        cancelBtn.disabled = !isParticipant;
+    return schedules.filter(schedule => {
+        const scheduleDate = new Date(schedule.dateTime);
         
-        if (isParticipant) {
-            joinBtn.title = '既に参加予定です';
+        switch (filter) {
+            case 'today':
+                return scheduleDate >= today && scheduleDate < tomorrow;
+            case 'tomorrow':
+                return scheduleDate >= tomorrow && scheduleDate < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
+            case 'my':
+                return schedule.participants.includes(currentUser.discordId);
+            case 'upcoming':
+            default:
+                return scheduleDate >= now;
         }
-        
-        // ボタンイベント
-        joinBtn.addEventListener('click', () => joinSchedule(schedule.id));
-        cancelBtn.addEventListener('click', () => cancelSchedule(schedule.id));
-    }
-    
-    return card;
+    }).sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
 }
 
-// 日時フォーマット
-function formatDateTime(date) {
-    return date.toLocaleString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        weekday: 'short'
-    });
-}
-
-// スケジュール参加
-async function joinSchedule(scheduleId) {
-    try {
-        const response = await fetch(`/api/schedules/${scheduleId}/join`, {
-            method: 'POST'
-        });
-        
-        if (!response.ok) {
-            throw new Error('参加に失敗しました');
-        }
-        
-        await loadSchedules();
-        showSuccess('ミッションに参加しました！');
-    } catch (error) {
-        console.error('参加エラー:', error);
-        showError('参加に失敗しました。もう一度お試しください。');
-    }
-}
-
-// スケジュール参加キャンセル
-async function cancelSchedule(scheduleId) {
-    try {
-        const response = await fetch(`/api/schedules/${scheduleId}/cancel`, {
-            method: 'POST'
-        });
-        
-        if (!response.ok) {
-            throw new Error('キャンセルに失敗しました');
-        }
-        
-        await loadSchedules();
-        showSuccess('参加をキャンセルしました。');
-    } catch (error) {
-        console.error('キャンセルエラー:', error);
-        showError('キャンセルに失敗しました。もう一度お試しください。');
-    }
-}
-
-// フォーム送信処理
-async function handleFormSubmit(e) {
-    e.preventDefault();
-    clearFormErrors();
-    
-    const submitBtn = e.target.querySelector('button[type="submit"]');
-    const formData = new FormData(e.target);
-    const hiddenDateTimeInput = document.getElementById('dateTime');
-    
-    // hiddenフィールドから日時を取得
-    let dateTime = null;
-    if (hiddenDateTimeInput.value) {
-        dateTime = new Date(hiddenDateTimeInput.value);
-    }
-    
-    // バリデーション
-    if (!validateForm(formData, dateTime)) {
-        return;
-    }
-    
-    // 送信処理
-    try {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = `
-            <div class="loading-spinner"></div>
-            <span>作成中...</span>
-        `;
-        
-        const scheduleData = {
-            title: formData.get('title').trim(),
-            type: formData.get('type'),
-            dateTime: dateTime.toISOString(),
-            description: formData.get('description')?.trim() || ''
-        };
-        
-        const response = await fetch('/api/schedules', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(scheduleData)
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'スケジュールの作成に失敗しました');
-        }
-        
-        showSuccess('ミッションが正常に作成されました！');
-        closeModal();
-        await loadSchedules();
-        
-    } catch (error) {
-        console.error('スケジュール作成エラー:', error);
-        showFormError(error.message);
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `
-            <span>ミッション作成</span>
-            <div class="btn-glow"></div>
-        `;
-    }
-}
-
-// フォームバリデーション
-function validateForm(formData, dateTime) {
-    const title = formData.get('title')?.trim();
-    const type = formData.get('type');
-    const dateInput = document.getElementById('missionDate');
-    const timeInput = document.getElementById('missionTime');
-    
-    if (!title) {
-        showFormError('ミッションタイトルは必須です。', document.getElementById('title'));
-        return false;
-    }
-    
-    if (title.length > 100) {
-        showFormError('ミッションタイトルは100文字以内で入力してください。', document.getElementById('title'));
-        return false;
-    }
-    
-    if (!type) {
-        showFormError('ミッション種別を選択してください。', document.getElementById('type'));
-        return false;
-    }
-    
-    if (!dateInput.value) {
-        showFormError('ミッション日付を選択してください。', dateInput);
-        return false;
-    }
-    
-    if (!timeInput.value) {
-        showFormError('ミッション時刻を選択してください。', timeInput);
-        return false;
-    }
-    
-    if (!dateTime || isNaN(dateTime.getTime())) {
-        showFormError('有効な日時を入力してください。', dateInput);
-        return false;
-    }
-    
-    if (dateTime <= new Date()) {
-        showFormError('過去の日時は選択できません。', dateInput);
-        return false;
-    }
-    
-    return true;
-}
-
-// フォームエラー表示
-function showFormError(message, field = null) {
-    const formError = document.querySelector('.form-error');
-    if (formError) {
-        formError.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            ${message}
-        `;
-        
-        if (field) {
-            const formGroup = field.closest('.form-group');
-            formGroup.classList.add('error');
-            field.setAttribute('aria-invalid', 'true');
-            field.focus();
-            formGroup.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }
-}
-
-// フォームエラークリア
-function clearFormErrors() {
-    const formError = document.querySelector('.form-error');
-    if (formError) {
-        formError.textContent = '';
-    }
-    
-    document.querySelectorAll('.form-group.error').forEach(group => {
-        group.classList.remove('error');
-        const input = group.querySelector('input, select, textarea');
-        if (input) {
-            input.removeAttribute('aria-invalid');
-        }
-    });
-}
-
-// ローディング表示
+// UI要素表示/非表示
 function showLoading() {
-    const container = document.getElementById('scheduleList');
-    container.innerHTML = `
-        <div class="loading-state">
-            <div class="loading-spinner"></div>
-            <h3>スケジュールを読み込み中...</h3>
-            <p>しばらくお待ちください。</p>
-        </div>
-    `;
+    document.getElementById('scheduleList').classList.add('loading');
 }
 
-// エラー表示
+function hideLoading() {
+    document.getElementById('scheduleList').classList.remove('loading');
+}
+
+function showSuccessMessage(message) {
+    // ToDo: 成功メッセージの表示実装
+    console.log('Success:', message);
+}
+
 function showError(message) {
-    const container = document.getElementById('scheduleList');
-    container.innerHTML = `
-        <div class="error-message">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            <h3>エラーが発生しました</h3>
-            <p>${message}</p>
-            <button onclick="location.reload()" class="btn-primary">
-                ページを再読み込み
-            </button>
-        </div>
-    `;
+    // ToDo: エラーメッセージの表示実装
+    console.error('Error:', message);
 }
-
-// 成功メッセージ表示
-function showSuccess(message) {
-    // 簡単な成功通知（ここでは一時的なトーストを実装）
-    const toast = document.createElement('div');
-    toast.className = 'toast success';
-    toast.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="20 6 9 17 4 12"/>
-        </svg>
-        ${message}
-    `;
-    
-    // トーストのスタイルを追加
-    toast.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: var(--valo-green);
-        color: var(--valo-black);
-        padding: 1rem 1.5rem;
-        border-radius: var(--border-radius);
-        box-shadow: var(--shadow-heavy);
-        z-index: 1000;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 600;
-        animation: slideIn 0.3s ease-out;
-    `;
-    
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease-in forwards';
-        setTimeout(() => {
-            document.body.removeChild(toast);
-        }, 300);
-    }, 3000);
-}
-
-// アニメーション用CSS
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(100%); opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
