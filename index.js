@@ -21,8 +21,8 @@ const PORT = process.env.PORT || 3000;
 
 // スリープ防止設定（Koyeb用に最適化）
 const KEEP_ALIVE_URL = process.env.KEEP_ALIVE_URL || `https://${process.env.KOYEB_PUBLIC_DOMAIN || `localhost:${PORT}`}`;
-const PING_INTERVAL = 8 * 60 * 1000; // 8分間隔（より頻繁に）
-const HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5分間隔でヘルスチェック
+const PING_INTERVAL = 4 * 60 * 1000; // 4分間隔（Koyebの無料枠に最適化）
+const HEALTH_CHECK_INTERVAL = 3 * 60 * 1000; // 3分間隔でヘルスチェック
 
 // ファイルパス
 const AUTH_KEY_FILE = process.env.AUTH_KEY_FILE || path.join(__dirname, 'auth_keys.json');
@@ -108,7 +108,8 @@ async function getUserDisplayName(userId) {
 function keepAlive() {
     const urls = [
         KEEP_ALIVE_URL + '/ping',
-        KEEP_ALIVE_URL + '/health'
+        KEEP_ALIVE_URL + '/health',
+        KEEP_ALIVE_URL + '/system'
     ];
 
     urls.forEach((urlString, index) => {
@@ -119,10 +120,11 @@ function keepAlive() {
                 port: url.port || (url.protocol === 'https:' ? 443 : 80),
                 path: url.pathname,
                 method: 'GET',
-                timeout: 25000,
+                timeout: 15000, // タイムアウトを15秒に短縮
                 headers: {
-                    'User-Agent': 'KeepAlive/1.0',
-                    'Accept': 'application/json'
+                    'User-Agent': 'KoyebKeepAlive/2.0',
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache'
                 }
             };
 
@@ -138,15 +140,19 @@ function keepAlive() {
 
             req.on('error', (error) => {
                 console.error(`Keep-alive ping ${index + 1} failed:`, error.message);
+                // エラー時は30秒後に再試行
+                setTimeout(() => keepAlive(), 30000);
             });
 
             req.on('timeout', () => {
                 console.error(`Keep-alive ping ${index + 1} timeout`);
                 req.destroy();
+                // タイムアウト時は1分後に再試行
+                setTimeout(() => keepAlive(), 60000);
             });
 
             req.end();
-        }, index * 2000); // 各リクエストを2秒間隔で実行
+        }, index * 1000); // 各リクエストを1秒間隔で実行
     });
 }
 
@@ -474,65 +480,135 @@ client.on('interactionCreate', async interaction => {
         });
     } else if (interaction.commandName === 'schedules') {
         const subcommand = interaction.options.getSubcommand();
+        const now = new Date();
+        let filteredSchedules = [];
         
-        if (subcommand === 'list') {
-            const now = new Date();
-            const activeSchedules = schedules
-                .filter(s => new Date(s.dateTime) > now)
-                .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
-
-            if (activeSchedules.length === 0) {
-                await interaction.reply({
-                    embeds: [
-                        new EmbedBuilder()
-                            .setColor(0xFFB347)
-                            .setTitle('📅 スケジュール一覧')
-                            .setDescription('現在予定されているスケジュールはありません。')
-                            .setTimestamp()
-                    ]
-                });
-                return;
-            }
-
-            // 最初のスケジュールを表示
-            const firstSchedule = activeSchedules[0];
-            const embed = await createScheduleEmbed(firstSchedule, 0, activeSchedules.length);
-
-            // ナビゲーションボタン
-            const prevButton = new ButtonBuilder()
-                .setCustomId(`schedule_nav_prev_0`)
-                .setLabel('◀ 前へ')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(activeSchedules.length <= 1);
-
-            const nextButton = new ButtonBuilder()
-                .setCustomId(`schedule_nav_next_0`)
-                .setLabel('次へ ▶')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(activeSchedules.length <= 1);
-
-            // アクションボタン
-            const joinButton = new ButtonBuilder()
-                .setCustomId(`join_${firstSchedule.id}`)
-                .setLabel('✅ 参加する')
-                .setStyle(ButtonStyle.Success);
-
-            const cancelButton = new ButtonBuilder()
-                .setCustomId(`cancel_${firstSchedule.id}`)
-                .setLabel('❌ 参加をキャンセル')
-                .setStyle(ButtonStyle.Danger);
-
-            const navRow = new ActionRowBuilder()
-                .addComponents(prevButton, nextButton);
-            
-            const actionRow = new ActionRowBuilder()
-                .addComponents(joinButton, cancelButton);
-
-            await interaction.reply({
-                embeds: [embed],
-                components: [navRow, actionRow]
-            });
+        switch (subcommand) {
+            case 'list':
+                filteredSchedules = schedules
+                    .filter(s => new Date(s.dateTime) > now)
+                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                break;
+                
+            case 'today':
+                const endOfDay = new Date(now);
+                endOfDay.setHours(23, 59, 59, 999);
+                filteredSchedules = schedules
+                    .filter(s => {
+                        const scheduleDate = new Date(s.dateTime);
+                        return scheduleDate >= now && scheduleDate <= endOfDay;
+                    })
+                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                break;
+                
+            case 'week':
+                const endOfWeek = new Date(now);
+                endOfWeek.setDate(now.getDate() + 7);
+                filteredSchedules = schedules
+                    .filter(s => {
+                        const scheduleDate = new Date(s.dateTime);
+                        return scheduleDate >= now && scheduleDate <= endOfWeek;
+                    })
+                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                break;
+                
+            case 'upcoming':
+                const count = interaction.options.getInteger('count') || 3;
+                filteredSchedules = schedules
+                    .filter(s => new Date(s.dateTime) > now)
+                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
+                    .slice(0, count);
+                break;
         }
+
+        if (filteredSchedules.length === 0) {
+            await interaction.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor(0xFFB347)
+                        .setTitle('📅 スケジュール')
+                        .setDescription('該当する予定はありません。')
+                        .setTimestamp()
+                ],
+                ephemeral: true
+            });
+            return;
+        }
+
+        // 最初のスケジュールを表示
+        const firstSchedule = filteredSchedules[0];
+        const embed = await createScheduleEmbed(firstSchedule, 0, filteredSchedules.length);
+
+        // ボタンの作成
+        const components = [];
+        
+        if (filteredSchedules.length > 1) {
+            const navButtons = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`schedule_nav_prev_0`)
+                        .setLabel('◀ 前へ')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setDisabled(true),
+                    new ButtonBuilder()
+                        .setCustomId(`schedule_nav_next_0`)
+                        .setLabel('次へ ▶')
+                        .setStyle(ButtonStyle.Secondary)
+                );
+            components.push(navButtons);
+        }
+
+        const actionButtons = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`join_${firstSchedule.id}`)
+                    .setLabel('✅ 参加する')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`cancel_${firstSchedule.id}`)
+                    .setLabel('❌ 参加をキャンセル')
+                    .setStyle(ButtonStyle.Danger)
+            );
+        components.push(actionButtons);
+
+        await interaction.reply({
+            embeds: [embed],
+            components: components,
+            ephemeral: subcommand !== 'list'
+        });
+    } else if (interaction.commandName === 'help') {
+        const helpEmbed = new EmbedBuilder()
+            .setColor(0x00AE86)
+            .setTitle('📚 ボットの使い方')
+            .setDescription('以下のコマンドが使用可能です：')
+            .addFields(
+                { 
+                    name: '/get-auth', 
+                    value: 'Webサイト用の認証コードを取得します。' 
+                },
+                { 
+                    name: '/schedules list', 
+                    value: '予定されているスケジュール一覧を表示します。' 
+                },
+                { 
+                    name: '/schedules today', 
+                    value: '今日のスケジュールを表示します。' 
+                },
+                { 
+                    name: '/schedules week', 
+                    value: '今週のスケジュール一覧を表示します。' 
+                },
+                { 
+                    name: '/schedules upcoming', 
+                    value: '直近の予定を表示します。数を指定可能です。' 
+                }
+            )
+            .setTimestamp();
+
+        await interaction.reply({
+            embeds: [helpEmbed],
+            ephemeral: true
+        });
     }
 });
 
@@ -551,8 +627,36 @@ async function deployCommands() {
                     name: 'list',
                     description: 'スケジュール一覧を表示（矢印ボタンで切り替え可能）',
                     type: 1
+                },
+                {
+                    name: 'today',
+                    description: '今日のスケジュールを表示',
+                    type: 1
+                },
+                {
+                    name: 'week',
+                    description: '今週のスケジュール一覧を表示',
+                    type: 1
+                },
+                {
+                    name: 'upcoming',
+                    description: '直近の予定を表示',
+                    type: 1,
+                    options: [
+                        {
+                            name: 'count',
+                            description: '表示する予定の数（デフォルト: 3）',
+                            type: 4,
+                            required: false
+                        }
+                    ]
                 }
             ]
+        },
+        {
+            name: 'help',
+            description: 'ボットの使い方を表示',
+            type: 1
         }
     ];
 
@@ -560,11 +664,9 @@ async function deployCommands() {
         const rest = new REST({ version: '10' }).setToken(TOKEN);
         
         if (GUILD_ID) {
-            // 開発時はギルド固有のコマンド
             await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
             console.log('ギルド固有のスラッシュコマンドを登録しました');
         } else {
-            // 本番時はグローバルコマンド
             await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
             console.log('グローバルスラッシュコマンドを登録しました');
         }
