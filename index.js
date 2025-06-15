@@ -462,10 +462,16 @@ client.on('interactionCreate', async interaction => {
                 }
 
                 try {
-                    await interaction.reply({ content: `認証コード: ${authKeys[key]}`, ephemeral: true });
+                    await interaction.reply({ 
+                        content: `認証コード:\n\`\`\`\n${key}\n\`\`\`\nこのコードをコピーしてウェブサイトの認証画面に入力してください。`, 
+                        ephemeral: true 
+                    });
                 } catch (error) {
                     if (error.code === 40060) {
-                        await interaction.followUp({ content: `認証コード: ${authKeys[key]}`, ephemeral: true });
+                        await interaction.followUp({ 
+                            content: `認証コード:\n\`\`\`\n${key}\n\`\`\`\nこのコードをコピーしてウェブサイトの認証画面に入力してください。`, 
+                            ephemeral: true 
+                        });
                     } else {
                         console.error('Error handling interaction:', error);
                     }
