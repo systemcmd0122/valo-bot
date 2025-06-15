@@ -289,7 +289,14 @@ async function createScheduleEmbed(schedule, currentIndex, totalCount) {
 // Discord Bot コマンド処理
 client.on('interactionCreate', async interaction => {
     if (interaction.isButton()) {
-        if (interaction.customId.startsWith('auth_')) {
+        if (interaction.customId.startsWith('copy_auth_')) {
+            const key = interaction.customId.split('_')[2];
+            await interaction.reply({
+                content: '```' + key + '```\nコードをコピーしやすいように表示しました。',
+                ephemeral: true
+            });
+            return;
+        } else if (interaction.customId.startsWith('auth_')) {
             const userId = interaction.customId.split('_')[1];
             
             if (interaction.user.id !== userId) {
@@ -319,9 +326,34 @@ client.on('interactionCreate', async interaction => {
 
             await fs.writeFile(AUTH_KEY_FILE, JSON.stringify(keys, null, 2));
 
-            await interaction.reply({ 
-                content: `認証コード: **${key}**\n※このコードは10分間有効です。`,
-                ephemeral: true 
+            const codeEmbed = new EmbedBuilder()
+                .setColor(0x00AE86)
+                .setTitle('🔑 認証コード')
+                .setDescription('下のコードをコピーしてWebサイトで入力してください。')
+                .addFields(
+                    { 
+                        name: 'コード',
+                        value: `\`\`\`\n${key}\n\`\`\`` 
+                    },
+                    {
+                        name: '⚠️ 注意',
+                        value: 'このコードは10分間のみ有効です。'
+                    }
+                )
+                .setTimestamp();
+
+            const copyButton = new ButtonBuilder()
+                .setCustomId(`copy_auth_${key}`)
+                .setLabel('📋 コードをコピー')
+                .setStyle(ButtonStyle.Primary);
+
+            const row = new ActionRowBuilder()
+                .addComponents(copyButton);
+
+            await interaction.reply({
+                embeds: [codeEmbed],
+                components: [row],
+                ephemeral: true
             });
         } else if (interaction.customId.startsWith('join_')) {
             const scheduleId = parseInt(interaction.customId.split('_')[1]);
