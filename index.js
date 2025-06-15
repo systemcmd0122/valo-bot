@@ -1,5 +1,6 @@
 const express = require('express');
 const session = require('express-session');
+require('web-streams-polyfill');
 const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, ButtonBuilder, ButtonStyle, ActionRowBuilder, SlashCommandBuilder } = require('discord.js');
 const fs = require('fs').promises;
 const path = require('path');
@@ -120,6 +121,15 @@ async function loadAuthKeys() {
         const data = await fs.readFile(AUTH_KEY_FILE, 'utf8');
         authKeys = JSON.parse(data);
         console.log('認証キーを読み込みました');
+
+        // 期限切れのキーを削除
+        const now = Date.now();
+        Object.keys(authKeys).forEach(key => {
+            if (authKeys[key].expireAt < now || authKeys[key].used) {
+                delete authKeys[key];
+            }
+        });
+        await saveAuthKeys();
     } catch (error) {
         if (error.code === 'ENOENT') {
             console.log('認証キーファイルが存在しません。新規作成します。');
@@ -396,7 +406,14 @@ client.on('interactionCreate', async interaction => {
                 }
 
                 const authCode = generateAuthCode();
-                authKeys[authCode] = interaction.user.id;
+                // 認証キーの有効期限を10分後に設定
+                authKeys[authCode] = {
+                    userId: interaction.user.id,
+                    username: interaction.user.username,
+                    createdAt: Date.now(),
+                    expireAt: Date.now() + 10 * 60 * 1000, // 10分
+                    used: false
+                };
                 await saveAuthKeys();
 
                 const codeEmbed = new EmbedBuilder()
@@ -825,21 +842,41 @@ app.post('/api/auth/login', async (req, res) => {
     if (!key) return res.status(400).json({ error: '認証キーが必要です' });
     
     try {
-        const data = await fs.readFile(AUTH_KEY_FILE, 'utf8');
-        const keys = JSON.parse(data);
-        const found = keys.find(k => k.key === key && !k.used && Date.now() < k.expireAt);
-        
-        if (found) {
-            req.session.authenticated = true;
-            req.session.user = { discordId: found.discordId, username: found.username };
-            found.used = true;
-            await fs.writeFile(AUTH_KEY_FILE, JSON.stringify(keys, null, 2));
-            return res.json({ success: true, user: req.session.user });
+        const authInfo = authKeys[key];
+        if (!authInfo) {
+            return res.status(401).json({ error: '認証キーが無効です' });
         }
-        
-        return res.status(401).json({ error: '認証キーが無効か期限切れです' });
-    } catch (e) {
-        return res.status(401).json({ error: '認証キーが無効です' });
+
+        // 期限切れチェック
+        if (Date.now() > authInfo.expireAt) {
+            delete authKeys[key];
+            await saveAuthKeys();
+            return res.status(401).json({ error: '認証キーの有効期限が切れています' });
+        }
+
+        // 使用済みチェック
+        if (authInfo.used) {
+            return res.status(401).json({ error: 'この認証キーは既に使用されています' });
+        }
+
+        // 認証成功
+        req.session.authenticated = true;
+        req.session.user = {
+            discordId: authInfo.userId,
+            username: authInfo.username
+        };
+
+        // キーを使用済みにマーク
+        authInfo.used = true;
+        await saveAuthKeys();
+
+        return res.json({
+            success: true,
+            user: req.session.user
+        });
+    } catch (error) {
+        console.error('認証処理エラー:', error);
+        return res.status(500).json({ error: '認証処理中にエラーが発生しました' });
     }
 });
 

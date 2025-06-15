@@ -11,6 +11,7 @@
     "express": "^5.1.0",
     "express-session": "^1.18.1",
     "passport": "^0.7.0",
-    "passport-discord": "^0.1.4"
+    "passport-discord": "^0.1.4",
+    "web-streams-polyfill": "^4.1.0"
   }
 }
