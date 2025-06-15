@@ -92,11 +92,15 @@ function initializeEventListeners() {
 
 // スケジュール作成完了ハンドラ
 async function handleScheduleCreated(event) {
-    const newSchedule = event.detail;
-    schedules.push(newSchedule);
-    document.getElementById('scheduleModal').close();
-    await renderSchedules();
-    showSuccessMessage('新しいミッションが作成されました！');
+    const response = event.detail;
+    if (response.success) {
+        schedules = response.schedules; // サーバーから返された最新のスケジュール一覧で更新
+        document.getElementById('scheduleModal').close();
+        await renderSchedules();
+        showSuccessMessage('新しいミッションが作成されました！');
+    } else {
+        showError(response.error || 'ミッションの作成に失敗しました。');
+    }
 }
 
 // ログアウト処理
@@ -127,14 +131,21 @@ function setActiveFilter(filter) {
 async function loadSchedules() {
     try {
         showLoading();
-        const response = await fetch('/api/schedules');
+        const response = await fetch('/api/schedules?' + new URLSearchParams({
+            _: Date.now() // キャッシュ防止
+        }));
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        schedules = await response.json();
-        await renderSchedules();
+        const data = await response.json();
+        if (data.success) {
+            schedules = data.schedules;
+            await renderSchedules();
+        } else {
+            throw new Error(data.error || 'スケジュールの読み込みに失敗しました');
+        }
     } catch (error) {
         console.error('スケジュール読み込みエラー:', error);
         showError('スケジュールの読み込みに失敗しました。');
@@ -194,12 +205,41 @@ function hideLoading() {
     document.getElementById('scheduleList').classList.remove('loading');
 }
 
+// 通知メッセージ表示
+function showNotification(message, type = 'success') {
+    // 既存の通知を削除
+    const existingNotification = document.querySelector('.notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+
+    // 新しい通知を作成
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.innerHTML = `
+        <span class="notification-message">${message}</span>
+        <button class="notification-close">×</button>
+    `;
+
+    // 通知を表示
+    document.body.appendChild(notification);
+
+    // クローズボタンの処理
+    const closeBtn = notification.querySelector('.notification-close');
+    closeBtn.addEventListener('click', () => notification.remove());
+
+    // 5秒後に自動で消える
+    setTimeout(() => {
+        if (document.body.contains(notification)) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
 function showSuccessMessage(message) {
-    // ToDo: 成功メッセージの表示実装
-    console.log('Success:', message);
+    showNotification(message, 'success');
 }
 
 function showError(message) {
-    // ToDo: エラーメッセージの表示実装
-    console.error('Error:', message);
+    showNotification(message, 'error');
 }

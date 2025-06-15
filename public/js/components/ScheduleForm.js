@@ -118,13 +118,18 @@ class ScheduleForm {
             });
 
             if (!response.ok) {
-                throw new Error('スケジュールの作成に失敗しました');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'スケジュールの作成に失敗しました');
             }
 
-            const newSchedule = await response.json();
-            this.form.reset();
-            this.dispatchEvent('scheduleCreated', newSchedule);
-            return newSchedule;
+            const result = await response.json();
+            if (result.success) {
+                this.form.reset();
+                this.dispatchEvent('scheduleCreated', result);
+                return result;
+            } else {
+                throw new Error(result.error || 'スケジュールの作成に失敗しました');
+            }
         } catch (error) {
             console.error('スケジュール作成エラー:', error);
             throw error;

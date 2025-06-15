@@ -286,6 +286,21 @@ async function createScheduleEmbed(schedule, currentIndex, totalCount) {
     return embed;
 }
 
+// スケジュールをソートする関数
+async function getSortedSchedules(filterFn = null) {
+    const now = new Date();
+    let filteredSchedules = schedules;
+    
+    if (filterFn) {
+        filteredSchedules = schedules.filter(filterFn);
+    }
+
+    // 未来の予定のみを取得し、日時でソート
+    return filteredSchedules
+        .filter(s => new Date(s.dateTime) > now)
+        .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+}
+
 // Discord Bot コマンド処理
 client.on('interactionCreate', async interaction => {
     if (interaction.isButton()) {
@@ -510,46 +525,37 @@ client.on('interactionCreate', async interaction => {
             content: `${channel} に認証用メッセージを送信しました。\nボタンをクリックして認証コードを取得してください。`, 
             ephemeral: true 
         });
-    } else if (interaction.commandName === 'schedules') {
+    } else    if (interaction.commandName === 'schedules') {
         const subcommand = interaction.options.getSubcommand();
         const now = new Date();
         let filteredSchedules = [];
         
         switch (subcommand) {
             case 'list':
-                filteredSchedules = schedules
-                    .filter(s => new Date(s.dateTime) > now)
-                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                filteredSchedules = await getSortedSchedules();
                 break;
                 
             case 'today':
                 const endOfDay = new Date(now);
                 endOfDay.setHours(23, 59, 59, 999);
-                filteredSchedules = schedules
-                    .filter(s => {
-                        const scheduleDate = new Date(s.dateTime);
-                        return scheduleDate >= now && scheduleDate <= endOfDay;
-                    })
-                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                filteredSchedules = await getSortedSchedules(s => {
+                    const scheduleDate = new Date(s.dateTime);
+                    return scheduleDate >= now && scheduleDate <= endOfDay;
+                });
                 break;
                 
             case 'week':
                 const endOfWeek = new Date(now);
                 endOfWeek.setDate(now.getDate() + 7);
-                filteredSchedules = schedules
-                    .filter(s => {
-                        const scheduleDate = new Date(s.dateTime);
-                        return scheduleDate >= now && scheduleDate <= endOfWeek;
-                    })
-                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+                filteredSchedules = await getSortedSchedules(s => {
+                    const scheduleDate = new Date(s.dateTime);
+                    return scheduleDate >= now && scheduleDate <= endOfWeek;
+                });
                 break;
                 
             case 'upcoming':
                 const count = interaction.options.getInteger('count') || 3;
-                filteredSchedules = schedules
-                    .filter(s => new Date(s.dateTime) > now)
-                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime))
-                    .slice(0, count);
+                filteredSchedules = (await getSortedSchedules()).slice(0, count);
                 break;
         }
 
@@ -711,15 +717,14 @@ async function deployCommands() {
         // 新しいコマンドの登録
         console.log('新しいスラッシュコマンドを登録中...');
         
-        // グローバルコマンドとして登録
-        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-        console.log('グローバルコマンドを登録しました');
-        
-        // ギルドコマンドとしても登録（ギルドIDが設定されている場合）
-        if (GUILD_ID) {
-            await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-            console.log('ギルドコマンドを登録しました');
+        if (!GUILD_ID) {
+            console.error('GUILD_IDが設定されていません。コマンドを登録できません。');
+            return;
         }
+        
+        // ギルドコマンドとして登録
+        await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+        console.log('ギルドコマンドを登録しました');
     } catch (error) {
         console.error('スラッシュコマンド登録エラー:', error);
     }
@@ -843,17 +848,40 @@ app.get('/api/auth/status', (req, res) => {
 });
 
 app.get('/api/schedules', async (req, res) => {
-    // 未来のスケジュールのみを返す（オプション）
-    const includeAll = req.query.all === 'true';
-    
-    if (includeAll) {
-        res.json(schedules);
-    } else {
+    try {
+        // キャッシュ制御ヘッダーを設定
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+        
+        // スケジュールを再読み込み
+        await loadSchedules();
+        
+        // 未来のスケジュールのみを返す（オプション）
+        const includeAll = req.query.all === 'true';
+        
         const now = new Date();
-        const activeSchedules = schedules
-            .filter(s => new Date(s.dateTime) > now)
-            .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
-        res.json(activeSchedules);
+        let result;
+        
+        if (includeAll) {
+            result = schedules;
+        } else {
+            result = schedules
+                .filter(s => new Date(s.dateTime) > now)
+                .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+        }
+        
+        res.json({
+            success: true,
+            schedules: result,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('スケジュール取得エラー:', error);
+        res.status(500).json({ 
+            success: false, 
+            error: 'スケジュールの取得に失敗しました'
+        });
     }
 });
 
@@ -922,7 +950,17 @@ app.post('/api/schedules', async (req, res) => {
         console.error('Discord通知エラー:', error);
     }
 
-    res.status(201).json(newSchedule);
+    // スケジュールをファイルに保存した後、最新のスケジュール一覧を返す
+    const now = new Date();
+    const activeSchedules = schedules
+        .filter(s => new Date(s.dateTime) > now)
+        .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+
+    res.status(201).json({
+        success: true,
+        schedule: newSchedule,
+        schedules: activeSchedules
+    });
 });
 
 // 参加管理API
