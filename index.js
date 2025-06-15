@@ -58,6 +58,87 @@ app.use(session({
 // メモリ内データストレージ
 let schedules = [];
 let nextId = 1;
+let authKeys = {};
+
+// スラッシュコマンドの定義
+const commands = [
+    new SlashCommandBuilder()
+        .setName('schedules')
+        .setDescription('予定を確認します')
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('list')
+                .setDescription('すべての予定を表示します')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('today')
+                .setDescription('今日の予定を表示します')
+        ),
+    new SlashCommandBuilder()
+        .setName('get-auth')
+        .setDescription('認証コードを取得します')
+];
+
+// スラッシュコマンドを登録する関数
+async function registerCommands() {
+    try {
+        console.log('スラッシュコマンドを登録中...');
+        const rest = new REST().setToken(TOKEN);
+        await rest.put(
+            Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+            { body: commands }
+        );
+        console.log('スラッシュコマンドの登録が完了しました');
+    } catch (error) {
+        console.error('スラッシュコマンドの登録中にエラーが発生しました:', error);
+    }
+}
+
+// 認証コードの生成関数
+function generateAuthCode() {
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return code;
+}
+
+// 認証キーの保存
+async function saveAuthKeys() {
+    try {
+        await fs.writeFile(AUTH_KEY_FILE, JSON.stringify(authKeys, null, 2));
+    } catch (error) {
+        console.error('認証キーの保存中にエラーが発生しました:', error);
+    }
+}
+
+// 認証キーのロード
+async function loadAuthKeys() {
+    try {
+        const data = await fs.readFile(AUTH_KEY_FILE, 'utf8');
+        authKeys = JSON.parse(data);
+        console.log('認証キーを読み込みました');
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.log('認証キーファイルが存在しません。新規作成します。');
+            authKeys = {};
+            await saveAuthKeys();
+        } else {
+            console.error('認証キーの読み込み中にエラーが発生しました:', error);
+            authKeys = {};
+        }
+    }
+}
+
+// クライアント準備完了時の処理
+client.once('ready', async () => {
+    console.log(`${client.user.tag} が起動しました`);
+    await registerCommands();
+    await loadAuthKeys();
+    await loadSchedules();
+});
 
 // エラーハンドリング
 process.on('uncaughtException', (error) => {
@@ -656,86 +737,6 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-// スラッシュコマンド登録
-async function deployCommands() {
-    const commands = [
-        {
-            name: 'get-auth',
-            description: 'Webサイト用の認証コードを取得します'
-        },
-        {
-            name: 'schedules',
-            description: 'スケジュール管理',
-            options: [
-                {
-                    name: 'list',
-                    description: 'スケジュール一覧を表示（矢印ボタンで切り替え可能）',
-                    type: 1
-                },
-                {
-                    name: 'today',
-                    description: '今日のスケジュールを表示',
-                    type: 1
-                },
-                {
-                    name: 'week',
-                    description: '今週のスケジュール一覧を表示',
-                    type: 1
-                },
-                {
-                    name: 'upcoming',
-                    description: '直近の予定を表示',
-                    type: 1,
-                    options: [
-                        {
-                            name: 'count',
-                            description: '表示する予定の数（デフォルト: 3）',
-                            type: 4,
-                            required: false
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            name: 'help',
-            description: 'ボットの使い方を表示',
-            type: 1
-        }
-    ];
-
-    try {
-        const rest = new REST({ version: '10' }).setToken(TOKEN);
-
-        // 既存のコマンドを削除
-        console.log('既存のスラッシュコマンドを削除中...');
-        
-        // グローバルコマンドの削除
-        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: [] });
-        console.log('グローバルコマンドを削除しました');
-        
-        // ギルドコマンドの削除（ギルドIDが設定されている場合）
-        if (GUILD_ID) {
-            await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: [] });
-            console.log('ギルドコマンドを削除しました');
-        }
-        
-        // 新しいコマンドの登録
-        console.log('新しいスラッシュコマンドを登録中...');
-        
-        if (!GUILD_ID) {
-            console.error('GUILD_IDが設定されていません。コマンドを登録できません。');
-            return;
-        }
-        
-        // ギルドコマンドとして登録
-        await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-        console.log('ギルドコマンドを登録しました');
-    } catch (error) {
-        console.error('スラッシュコマンド登録エラー:', error);
-    }
-}
-
 // 強化されたKeep-alive用エンドポイント
 app.get('/ping', (req, res) => {
     const timestamp = new Date().toISOString();
@@ -1043,7 +1044,7 @@ async function startServer() {
     try {
         await loadSchedules();
         await client.login(TOKEN);
-        await deployCommands();
+        await registerCommands();
         
         app.listen(PORT, () => {
             console.log(`サーバーが起動しました: http://localhost:${PORT}`);
