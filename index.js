@@ -662,13 +662,31 @@ async function deployCommands() {
 
     try {
         const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+        // 既存のコマンドを削除
+        console.log('既存のスラッシュコマンドを削除中...');
         
+        // グローバルコマンドの削除
+        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: [] });
+        console.log('グローバルコマンドを削除しました');
+        
+        // ギルドコマンドの削除（ギルドIDが設定されている場合）
+        if (GUILD_ID) {
+            await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: [] });
+            console.log('ギルドコマンドを削除しました');
+        }
+        
+        // 新しいコマンドの登録
+        console.log('新しいスラッシュコマンドを登録中...');
+        
+        // グローバルコマンドとして登録
+        await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+        console.log('グローバルコマンドを登録しました');
+        
+        // ギルドコマンドとしても登録（ギルドIDが設定されている場合）
         if (GUILD_ID) {
             await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
-            console.log('ギルド固有のスラッシュコマンドを登録しました');
-        } else {
-            await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
-            console.log('グローバルスラッシュコマンドを登録しました');
+            console.log('ギルドコマンドを登録しました');
         }
     } catch (error) {
         console.error('スラッシュコマンド登録エラー:', error);
