@@ -1,6 +1,6 @@
 const express = require('express');
 const session = require('express-session');
-const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, REST, Routes, ButtonBuilder, ButtonStyle, ActionRowBuilder, SlashCommandBuilder } = require('discord.js');
 const fs = require('fs').promises;
 const path = require('path');
 const https = require('https');
@@ -301,381 +301,358 @@ async function getSortedSchedules(filterFn = null) {
 // Discord Bot コマンド処理
 client.on('interactionCreate', async interaction => {
     try {
-        if (!interaction.isButton()) return;
+        // ボタンインタラクションの処理
+        if (interaction.isButton()) {
+            if (interaction.customId.startsWith('auth_')) {
+                // 認証ボタンの処理
+                const userId = interaction.customId.split('_')[1];
+                if (userId !== interaction.user.id) {
+                    await interaction.reply({ 
+                        content: 'このボタンは他のユーザー用です。', 
+                        ephemeral: true 
+                    });
+                    return;
+                }
 
-        if (interaction.customId.startsWith('copy_auth_')) {
-            const key = interaction.customId.split('_')[2];
-            if (!authKeys[key]) {
+                const authCode = generateAuthCode();
+                authKeys[authCode] = interaction.user.id;
+                await saveAuthKeys();
+
+                const codeEmbed = new EmbedBuilder()
+                    .setColor(0x00AE86)
+                    .setTitle('🔑 認証コード')
+                    .setDescription(`あなたの認証コード: \`${authCode}\``)
+                    .addFields(
+                        {
+                            name: '使い方',
+                            value: 'このコードをウェブサイトの認証画面で入力してください。'
+                        },
+                        {
+                            name: '⚠️ 注意',
+                            value: 'このコードは10分間のみ有効です。'
+                        }
+                    )
+                    .setTimestamp();
+
+                const copyButton = new ButtonBuilder()
+                    .setCustomId(`copy_auth_${authCode}`)
+                    .setLabel('📋 コードをコピー')
+                    .setStyle(ButtonStyle.Primary);
+
+                const row = new ActionRowBuilder()
+                    .addComponents(copyButton);
+
+                await interaction.reply({
+                    embeds: [codeEmbed],
+                    components: [row],
+                    ephemeral: true
+                });
+            } else if (interaction.customId.startsWith('copy_auth_')) {
+                // コピーボタンの処理
+                const key = interaction.customId.split('_')[2];
+                if (!authKeys[key]) {
+                    try {
+                        await interaction.reply({ content: '認証コードが見つかりません。', ephemeral: true });
+                    } catch (error) {
+                        if (error.code === 40060) {
+                            await interaction.followUp({ content: '認証コードが見つかりません。', ephemeral: true });
+                        } else {
+                            console.error('Error handling interaction:', error);
+                        }
+                    }
+                    return;
+                }
+
                 try {
-                    await interaction.reply({ content: '認証コードが見つかりません。', ephemeral: true });
+                    await interaction.reply({ content: `認証コード: ${authKeys[key]}`, ephemeral: true });
                 } catch (error) {
                     if (error.code === 40060) {
-                        await interaction.followUp({ content: '認証コードが見つかりません。', ephemeral: true });
+                        await interaction.followUp({ content: `認証コード: ${authKeys[key]}`, ephemeral: true });
                     } else {
                         console.error('Error handling interaction:', error);
                     }
                 }
-                return;
-            }
-
-            try {
-                await interaction.reply({ content: `認証コード: ${authKeys[key]}`, ephemeral: true });
-            } catch (error) {
-                if (error.code === 40060) {
-                    await interaction.followUp({ content: `認証コード: ${authKeys[key]}`, ephemeral: true });
-                } else {
-                    console.error('Error handling interaction:', error);
-                }
-            }
-        } else if (interaction.customId.startsWith('auth_')) {
-            const userId = interaction.customId.split('_')[1];
-            
-            if (interaction.user.id !== userId) {
-                await interaction.reply({ content: 'このボタンは他の人用です。', ephemeral: true });
-                return;
-            }
-
-            const key = Math.random().toString(36).slice(-6).toUpperCase();
-            const expireAt = Date.now() + 10 * 60 * 1000;
-
-            const entry = {
-                key,
-                discordId: interaction.user.id,
-                username: interaction.member?.displayName || interaction.user.globalName || interaction.user.username,
-                expireAt,
-                used: false
-            };
-
-            let keys = [];
-            try {
-                const data = await fs.readFile(AUTH_KEY_FILE, 'utf8');
-                keys = JSON.parse(data);
-            } catch (e) {}
-
-            keys = keys.filter(k => k.expireAt > Date.now());
-            keys.push(entry);
-
-            await fs.writeFile(AUTH_KEY_FILE, JSON.stringify(keys, null, 2));
-
-            const codeEmbed = new EmbedBuilder()
-                .setColor(0x00AE86)
-                .setTitle('🔑 認証コード')
-                .setDescription('下のコードをコピーしてWebサイトで入力してください。')
-                .addFields(
-                    { 
-                        name: 'コード',
-                        value: `\`\`\`\n${key}\n\`\`\`` 
-                    },
-                    {
-                        name: '⚠️ 注意',
-                        value: 'このコードは10分間のみ有効です。'
-                    }
-                )
-                .setTimestamp();
-
-            const copyButton = new ButtonBuilder()
-                .setCustomId(`copy_auth_${key}`)
-                .setLabel('📋 コードをコピー')
-                .setStyle(ButtonStyle.Primary);
-
-            const row = new ActionRowBuilder()
-                .addComponents(copyButton);
-
-            await interaction.reply({
-                embeds: [codeEmbed],
-                components: [row],
-                ephemeral: true
-            });
-        } else if (interaction.customId.startsWith('join_')) {
-            const scheduleId = parseInt(interaction.customId.split('_')[1]);
-            const schedule = schedules.find(s => s.id === scheduleId);
-            
-            if (!schedule) {
-                try {
-                    await interaction.reply({ content: 'スケジュールが見つかりません。', ephemeral: true });
-                } catch (error) {
-                    if (error.code === 40060) {
-                        await interaction.followUp({ content: 'スケジュールが見つかりません。', ephemeral: true });
-                    } else {
-                        console.error('Error handling interaction:', error);
-                    }
-                }
-                return;
-            }
-
-            const userId = interaction.user.id;
-            if (!schedule.participants.includes(userId)) {
-                schedule.participants.push(userId);
-                const absentIndex = schedule.absentees.indexOf(userId);
-                if (absentIndex > -1) {
-                    schedule.absentees.splice(absentIndex, 1);
-                }
-                await saveSchedules();
+            } else if (interaction.customId.startsWith('schedule_nav_')) {
+                // ナビゲーションボタンの処理
+                const [, , action, currentIndexStr] = interaction.customId.split('_');
+                const currentIndex = parseInt(currentIndexStr);
                 
-                await interaction.reply({
-                    content: `✅ **${schedule.title}** に参加表明しました！`,
-                    ephemeral: true
-                });
-            } else {
-                await interaction.reply({
-                    content: '既に参加表明済みです。',
-                    ephemeral: true
-                });
-            }
-        } else if (interaction.customId.startsWith('cancel_')) {
-            const scheduleId = parseInt(interaction.customId.split('_')[1]);
-            const schedule = schedules.find(s => s.id === scheduleId);
-            
-            if (!schedule) {
-                try {
-                    await interaction.reply({ content: 'スケジュールが見つかりません。', ephemeral: true });
-                } catch (error) {
-                    if (error.code === 40060) {
-                        await interaction.followUp({ content: 'スケジュールが見つかりません。', ephemeral: true });
-                    }
+                const now = new Date();
+                const activeSchedules = schedules
+                    .filter(s => new Date(s.dateTime) > now)
+                    .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+
+                if (activeSchedules.length === 0) {
+                    await interaction.update({
+                        content: '予定されているスケジュールはありません。',
+                        embeds: [],
+                        components: []
+                    });
+                    return;
                 }
-                return;
-            }
 
-            const userId = interaction.user.id;
-            if (!schedule.participants || !schedule.participants.includes(userId)) {
-                try {
-                    await interaction.reply({ content: 'この予定に参加登録していません。', ephemeral: true });
-                } catch (error) {
-                    if (error.code === 40060) {
-                        await interaction.followUp({ content: 'この予定に参加登録していません。', ephemeral: true });
-                    }
+                let newIndex = currentIndex;
+                if (action === 'prev') {
+                    newIndex = currentIndex > 0 ? currentIndex - 1 : activeSchedules.length - 1;
+                } else if (action === 'next') {
+                    newIndex = currentIndex < activeSchedules.length - 1 ? currentIndex + 1 : 0;
                 }
-                return;
-            }
 
-            // 参加者リストから削除
-            schedule.participants = schedule.participants.filter(id => id !== userId);
-            await saveSchedules();
+                const schedule = activeSchedules[newIndex];
+                const embed = await createScheduleEmbed(schedule, newIndex, activeSchedules.length);
 
-            // 更新された予定の情報を表示
-            const embed = await createScheduleEmbed(schedule);
-            try {
-                await interaction.reply({
-                    content: '予定への参加をキャンセルしました。',
+                // ボタンの作成
+                const prevButton = new ButtonBuilder()
+                    .setCustomId(`schedule_nav_prev_${newIndex}`)
+                    .setLabel('◀ 前へ')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(activeSchedules.length <= 1);
+
+                const nextButton = new ButtonBuilder()
+                    .setCustomId(`schedule_nav_next_${newIndex}`)
+                    .setLabel('次へ ▶')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(activeSchedules.length <= 1);
+
+                const joinButton = new ButtonBuilder()
+                    .setCustomId(`join_${schedule.id}`)
+                    .setLabel('参加する')
+                    .setStyle(ButtonStyle.Success);
+
+                const cancelButton = new ButtonBuilder()
+                    .setCustomId(`cancel_${schedule.id}`)
+                    .setLabel('参加をキャンセル')
+                    .setStyle(ButtonStyle.Danger);
+
+                const navRow = new ActionRowBuilder()
+                    .addComponents(prevButton, nextButton);
+                
+                const actionRow = new ActionRowBuilder()
+                    .addComponents(joinButton, cancelButton);
+
+                await interaction.update({
                     embeds: [embed],
-                    ephemeral: true
+                    components: [navRow, actionRow]
                 });
-            } catch (error) {
-                if (error.code === 40060) {
-                    await interaction.followUp({
+            } else if (interaction.customId.startsWith('join_')) {
+                // 参加ボタンの処理
+                const scheduleId = parseInt(interaction.customId.split('_')[1]);
+                const schedule = schedules.find(s => s.id === scheduleId);
+                
+                if (!schedule) {
+                    try {
+                        await interaction.reply({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                    } catch (error) {
+                        if (error.code === 40060) {
+                            await interaction.followUp({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                        } else {
+                            console.error('Error handling interaction:', error);
+                        }
+                    }
+                    return;
+                }
+
+                const userId = interaction.user.id;
+                if (!schedule.participants.includes(userId)) {
+                    schedule.participants.push(userId);
+                    const absentIndex = schedule.absentees.indexOf(userId);
+                    if (absentIndex > -1) {
+                        schedule.absentees.splice(absentIndex, 1);
+                    }
+                    await saveSchedules();
+                    
+                    await interaction.reply({
+                        content: `✅ **${schedule.title}** に参加表明しました！`,
+                        ephemeral: true
+                    });
+                } else {
+                    await interaction.reply({
+                        content: '既に参加表明済みです。',
+                        ephemeral: true
+                    });
+                }
+            } else if (interaction.customId.startsWith('cancel_')) {
+                // キャンセルボタンの処理
+                const scheduleId = parseInt(interaction.customId.split('_')[1]);
+                const schedule = schedules.find(s => s.id === scheduleId);
+                
+                if (!schedule) {
+                    try {
+                        await interaction.reply({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                    } catch (error) {
+                        if (error.code === 40060) {
+                            await interaction.followUp({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                        }
+                    }
+                    return;
+                }
+
+                const userId = interaction.user.id;
+                if (!schedule.participants || !schedule.participants.includes(userId)) {
+                    try {
+                        await interaction.reply({ content: 'この予定に参加登録していません。', ephemeral: true });
+                    } catch (error) {
+                        if (error.code === 40060) {
+                            await interaction.followUp({ content: 'この予定に参加登録していません。', ephemeral: true });
+                        }
+                    }
+                    return;
+                }
+
+                // 参加者リストから削除
+                schedule.participants = schedule.participants.filter(id => id !== userId);
+                await saveSchedules();
+
+                // 更新された予定の情報を表示
+                const embed = await createScheduleEmbed(schedule);
+                try {
+                    await interaction.reply({
                         content: '予定への参加をキャンセルしました。',
                         embeds: [embed],
                         ephemeral: true
                     });
+                } catch (error) {
+                    if (error.code === 40060) {
+                        await interaction.followUp({
+                            content: '予定への参加をキャンセルしました。',
+                            embeds: [embed],
+                            ephemeral: true
+                        });
+                    }
                 }
             }
-        } else if (interaction.customId.startsWith('schedule_nav_')) {
-            const [, , action, currentIndexStr] = interaction.customId.split('_');
-            const currentIndex = parseInt(currentIndexStr);
-            
-            const now = new Date();
-            const activeSchedules = schedules
-                .filter(s => new Date(s.dateTime) > now)
-                .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
-
-            if (activeSchedules.length === 0) {
-                await interaction.update({
-                    content: '予定されているスケジュールはありません。',
-                    embeds: [],
-                    components: []
-                });
-                return;
-            }
-
-            let newIndex = currentIndex;
-            if (action === 'prev') {
-                newIndex = currentIndex > 0 ? currentIndex - 1 : activeSchedules.length - 1;
-            } else if (action === 'next') {
-                newIndex = currentIndex < activeSchedules.length - 1 ? currentIndex + 1 : 0;
-            }
-
-            const schedule = activeSchedules[newIndex];
-            const embed = await createScheduleEmbed(schedule, newIndex, activeSchedules.length);
-
-            // ボタンの作成
-            const prevButton = new ButtonBuilder()
-                .setCustomId(`schedule_nav_prev_${newIndex}`)
-                .setLabel('◀ 前へ')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(activeSchedules.length <= 1);
-
-            const nextButton = new ButtonBuilder()
-                .setCustomId(`schedule_nav_next_${newIndex}`)
-                .setLabel('次へ ▶')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(activeSchedules.length <= 1);
-
-            const joinButton = new ButtonBuilder()
-                .setCustomId(`join_${schedule.id}`)
-                .setLabel('参加する')
-                .setStyle(ButtonStyle.Success);
-
-            const cancelButton = new ButtonBuilder()
-                .setCustomId(`cancel_${schedule.id}`)
-                .setLabel('参加をキャンセル')
-                .setStyle(ButtonStyle.Danger);
-
-            const navRow = new ActionRowBuilder()
-                .addComponents(prevButton, nextButton);
-            
-            const actionRow = new ActionRowBuilder()
-                .addComponents(joinButton, cancelButton);
-
-            await interaction.update({
-                embeds: [embed],
-                components: [navRow, actionRow]
-            });
-        }
-        return;
-    } catch (error) {
-        console.error('Error in interaction handler:', error);
-    }
-
-    if (!interaction.isChatInputCommand()) return;
-
-    if (interaction.commandName === 'get-auth') {
-        const channel = client.channels.cache.get(AUTH_CHANNEL_ID);
-        if (!channel) {
-            await interaction.reply({ 
-                content: '認証用チャンネルが見つかりません。', 
-                ephemeral: true 
-            });
             return;
         }
 
-        const button = new ButtonBuilder()
-            .setCustomId(`auth_${interaction.user.id}`)
-            .setLabel('🔑 認証コードを取得')
-            .setStyle(ButtonStyle.Primary);
+        // スラッシュコマンドの処理
+        if (!interaction.isChatInputCommand()) return;
 
-        const row = new ActionRowBuilder().addComponents(button);
+        // コマンド処理の開始
+        await interaction.deferReply({ ephemeral: true });
 
-        await channel.send({
-            embeds: [
-                new EmbedBuilder()
-                    .setColor(0x00AE86)
-                    .setTitle('🔑 認証リクエスト')
-                    .setDescription(`**${interaction.member?.displayName || interaction.user.globalName || interaction.user.username}** さんの認証リクエスト\nボタンをクリックして認証コードを取得してください。`)
-                    .setTimestamp()
-            ],
-            components: [row]
-        });
-
-        await interaction.reply({ 
-            content: `${channel} に認証用メッセージを送信しました。\nボタンをクリックして認証コードを取得してください。`, 
-            ephemeral: true 
-        });
-    } else if (interaction.commandName === 'schedules') {
-        const subcommand = interaction.options.getSubcommand();
-        const now = new Date();
-        let filteredSchedules = [];
-        
-        try {
-            switch (subcommand) {
-                case 'list':
-                    filteredSchedules = await getSortedSchedules();
-                    break;
-                    
-                case 'today':
-                    const endOfDay = new Date(now);
-                    endOfDay.setHours(23, 59, 59, 999);
-                    filteredSchedules = await getSortedSchedules(s => {
-                        const scheduleDate = new Date(s.dateTime);
-                        return scheduleDate >= now && scheduleDate <= endOfDay;
+        if (interaction.commandName === 'get-auth') {
+            try {
+                const channel = client.channels.cache.get(AUTH_CHANNEL_ID);
+                if (!channel) {
+                    await interaction.editReply({ 
+                        content: '認証用チャンネルが見つかりません。'
                     });
-                    break;
-            }
+                    return;
+                }
 
-            if (filteredSchedules.length === 0) {
+                const button = new ButtonBuilder()
+                    .setCustomId(`auth_${interaction.user.id}`)
+                    .setLabel('🔑 認証コードを取得')
+                    .setStyle(ButtonStyle.Primary);
+
+                const row = new ActionRowBuilder().addComponents(button);
+
+                await channel.send({
+                    embeds: [
+                        new EmbedBuilder()
+                            .setColor(0x00AE86)
+                            .setTitle('🔑 認証リクエスト')
+                            .setDescription(`**${interaction.member?.displayName || interaction.user.globalName || interaction.user.username}** さんの認証リクエスト\nボタンをクリックして認証コードを取得してください。`)
+                            .setTimestamp()
+                    ],
+                    components: [row]
+                });
+
+                await interaction.editReply({ 
+                    content: `${channel} に認証用メッセージを送信しました。\nボタンをクリックして認証コードを取得してください。`
+                });
+            } catch (error) {
+                console.error('認証コマンドの処理中にエラーが発生しました:', error);
+                await interaction.editReply({ 
+                    content: 'エラーが発生しました。もう一度お試しください。'
+                });
+            }
+        } else if (interaction.commandName === 'schedules') {
+            try {
+                const subcommand = interaction.options.getSubcommand();
+                const now = new Date();
+                let filteredSchedules = [];
+
+                switch (subcommand) {
+                    case 'list':
+                        filteredSchedules = await getSortedSchedules();
+                        break;
+                        
+                    case 'today':
+                        const endOfDay = new Date(now);
+                        endOfDay.setHours(23, 59, 59, 999);
+                        filteredSchedules = await getSortedSchedules(s => {
+                            const scheduleDate = new Date(s.dateTime);
+                            return scheduleDate >= now && scheduleDate <= endOfDay;
+                        });
+                        break;
+                }
+
+                if (filteredSchedules.length === 0) {
+                    await interaction.editReply({
+                        content: '予定が見つかりません。'
+                    });
+                    return;
+                }
+
+                const schedule = filteredSchedules[0];
+                const embed = await createScheduleEmbed(schedule, 0, filteredSchedules.length);
+
+                const prevButton = new ButtonBuilder()
+                    .setCustomId(`schedule_nav_prev_0`)
+                    .setLabel('◀ 前へ')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(filteredSchedules.length <= 1);
+
+                const nextButton = new ButtonBuilder()
+                    .setCustomId(`schedule_nav_next_0`)
+                    .setLabel('次へ ▶')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(filteredSchedules.length <= 1);
+
+                const joinButton = new ButtonBuilder()
+                    .setCustomId(`join_${schedule.id}`)
+                    .setLabel('参加する')
+                    .setStyle(ButtonStyle.Success);
+
+                const cancelButton = new ButtonBuilder()
+                    .setCustomId(`cancel_${schedule.id}`)
+                    .setLabel('参加をキャンセル')
+                    .setStyle(ButtonStyle.Danger);
+
+                const navRow = new ActionRowBuilder()
+                    .addComponents(prevButton, nextButton);
+                
+                const actionRow = new ActionRowBuilder()
+                    .addComponents(joinButton, cancelButton);
+
+                await interaction.editReply({
+                    embeds: [embed],
+                    components: [navRow, actionRow]
+                });
+            } catch (error) {
+                console.error('スケジュールコマンドの処理中にエラーが発生しました:', error);
+                await interaction.editReply({
+                    content: 'スケジュールの取得中にエラーが発生しました。'
+                });
+            }
+        }
+    } catch (error) {
+        console.error('インタラクションの処理中にエラーが発生しました:', error);
+        try {
+            if (!interaction.deferred && !interaction.replied) {
                 await interaction.reply({
-                    content: '予定が見つかりません。',
+                    content: 'エラーが発生しました。もう一度お試しください。',
                     ephemeral: true
                 });
-                return;
+            } else if (!interaction.replied) {
+                await interaction.editReply({
+                    content: 'エラーが発生しました。もう一度お試しください。'
+                });
             }
-
-            const schedule = filteredSchedules[0];
-            const embed = await createScheduleEmbed(schedule, 0, filteredSchedules.length);
-
-            const prevButton = new ButtonBuilder()
-                .setCustomId(`schedule_nav_prev_0`)
-                .setLabel('◀ 前へ')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(filteredSchedules.length <= 1);
-
-            const nextButton = new ButtonBuilder()
-                .setCustomId(`schedule_nav_next_0`)
-                .setLabel('次へ ▶')
-                .setStyle(ButtonStyle.Secondary)
-                .setDisabled(filteredSchedules.length <= 1);
-
-            const joinButton = new ButtonBuilder()
-                .setCustomId(`join_${schedule.id}`)
-                .setLabel('参加する')
-                .setStyle(ButtonStyle.Success);
-
-            const cancelButton = new ButtonBuilder()
-                .setCustomId(`cancel_${schedule.id}`)
-                .setLabel('参加をキャンセル')
-                .setStyle(ButtonStyle.Danger);
-
-            const navRow = new ActionRowBuilder()
-                .addComponents(prevButton, nextButton);
-            
-            const actionRow = new ActionRowBuilder()
-                .addComponents(joinButton, cancelButton);
-
-            await interaction.reply({
-                embeds: [embed],
-                components: [navRow, actionRow],
-                ephemeral: true
-            });
-        } catch (error) {
-            console.error('Error in schedules command:', error);
-            await interaction.reply({
-                content: 'スケジュールの取得中にエラーが発生しました。',
-                ephemeral: true
-            });
+        } catch (replyError) {
+            console.error('エラー応答の送信中にエラーが発生しました:', replyError);
         }
-    } else if (interaction.commandName === 'help') {
-        const helpEmbed = new EmbedBuilder()
-            .setColor(0x00AE86)
-            .setTitle('📚 ボットの使い方')
-            .setDescription('以下のコマンドが使用可能です：')
-            .addFields(
-                { 
-                    name: '/get-auth', 
-                    value: 'Webサイト用の認証コードを取得します。' 
-                },
-                { 
-                    name: '/schedules list', 
-                    value: '予定されているスケジュール一覧を表示します。' 
-                },
-                { 
-                    name: '/schedules today', 
-                    value: '今日のスケジュールを表示します。' 
-                },
-                { 
-                    name: '/schedules week', 
-                    value: '今週のスケジュール一覧を表示します。' 
-                },
-                { 
-                    name: '/schedules upcoming', 
-                    value: '直近の予定を表示します。数を指定可能です。' 
-                }
-            )
-            .setTimestamp();
-
-        await interaction.reply({
-            embeds: [helpEmbed],
-            ephemeral: true
-        });
     }
 });
 
