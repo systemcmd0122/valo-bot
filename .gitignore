@@ -7,6 +7,9 @@
 # 認証情報
 auth_keys.json
 
+# 日程情報
+schedule.json
+
 # Node.js
 node_modules/
 npm-debug.log*
