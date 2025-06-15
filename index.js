@@ -262,45 +262,24 @@ async function saveSchedules() {
 }
 
 // スケジュール埋め込みを作成
-async function createScheduleEmbed(schedule, currentIndex, totalCount) {
-    const participantNames = [];
-    const absenteeNames = [];
+async function createScheduleEmbed(schedule, index = null, total = null) {
+    const participants = schedule.participants || [];
+    const participantNames = await Promise.all(participants.map(userId => getUserDisplayName(userId)));
     
-    // 参加者名を取得
-    for (const userId of schedule.participants) {
-        const name = await getUserDisplayName(userId);
-        participantNames.push(name);
-    }
-    
-    // 不参加者名を取得
-    for (const userId of schedule.absentees) {
-        const name = await getUserDisplayName(userId);
-        absenteeNames.push(name);
-    }
-    
-    const participantsText = participantNames.length > 0 
-        ? participantNames.join(', ')
-        : 'まだ参加者がいません';
-        
-    const absenteesText = absenteeNames.length > 0
-        ? absenteeNames.join(', ')
-        : 'なし';
-
     const embed = new EmbedBuilder()
-        .setColor(0x0099FF)
-        .setTitle(`📅 ${schedule.title}`)
-        .setDescription(`**タイプ:** ${schedule.type}`)
+        .setColor(0x00AE86)
+        .setTitle('📅 予定詳細')
+        .setDescription(schedule.description || '説明なし')
         .addFields(
-            { name: '🕒 日時', value: formatJST(schedule.dateTime), inline: true },
-            { name: '👥 参加者数', value: `${schedule.participants.length}人`, inline: true },
-            { name: '❌ 不参加者数', value: `${schedule.absentees.length}人`, inline: true },
-            { name: '📝 説明', value: schedule.description || 'なし' },
-            { name: '✅ 参加予定', value: participantsText },
-            { name: '❌ 不参加', value: absenteesText }
-        )
-        .setFooter({ text: `${currentIndex + 1} / ${totalCount} - 作成者: ${schedule.createdBy}` })
-        .setTimestamp(new Date(schedule.dateTime));
-    
+            { name: '🕒 日時', value: formatJST(schedule.dateTime) },
+            { name: '👥 参加者数', value: `${participants.length}人` },
+            { name: '👤 参加者一覧', value: participantNames.length > 0 ? participantNames.join('\n') : '参加者はまだいません' }
+        );
+
+    if (index !== null && total !== null) {
+        embed.setFooter({ text: `${index + 1}/${total}` });
+    }
+
     return embed;
 }
 
@@ -453,31 +432,43 @@ client.on('interactionCreate', async interaction => {
                 } catch (error) {
                     if (error.code === 40060) {
                         await interaction.followUp({ content: 'スケジュールが見つかりません。', ephemeral: true });
-                    } else {
-                        console.error('Error handling interaction:', error);
                     }
                 }
                 return;
             }
 
             const userId = interaction.user.id;
-            const participantIndex = schedule.participants.indexOf(userId);
-            if (participantIndex > -1) {
-                schedule.participants.splice(participantIndex, 1);
-                if (!schedule.absentees.includes(userId)) {
-                    schedule.absentees.push(userId);
+            if (!schedule.participants || !schedule.participants.includes(userId)) {
+                try {
+                    await interaction.reply({ content: 'この予定に参加登録していません。', ephemeral: true });
+                } catch (error) {
+                    if (error.code === 40060) {
+                        await interaction.followUp({ content: 'この予定に参加登録していません。', ephemeral: true });
+                    }
                 }
-                await saveSchedules();
-                
+                return;
+            }
+
+            // 参加者リストから削除
+            schedule.participants = schedule.participants.filter(id => id !== userId);
+            await saveSchedules();
+
+            // 更新された予定の情報を表示
+            const embed = await createScheduleEmbed(schedule);
+            try {
                 await interaction.reply({
-                    content: `❌ **${schedule.title}** の参加をキャンセルしました。`,
+                    content: '予定への参加をキャンセルしました。',
+                    embeds: [embed],
                     ephemeral: true
                 });
-            } else {
-                await interaction.reply({
-                    content: '参加表明していません。',
-                    ephemeral: true
-                });
+            } catch (error) {
+                if (error.code === 40060) {
+                    await interaction.followUp({
+                        content: '予定への参加をキャンセルしました。',
+                        embeds: [embed],
+                        ephemeral: true
+                    });
+                }
             }
         } else if (interaction.customId.startsWith('schedule_nav_')) {
             const [, , action, currentIndexStr] = interaction.customId.split('_');
@@ -580,95 +571,78 @@ client.on('interactionCreate', async interaction => {
             content: `${channel} に認証用メッセージを送信しました。\nボタンをクリックして認証コードを取得してください。`, 
             ephemeral: true 
         });
-    } else    if (interaction.commandName === 'schedules') {
+    } else if (interaction.commandName === 'schedules') {
         const subcommand = interaction.options.getSubcommand();
         const now = new Date();
         let filteredSchedules = [];
         
-        switch (subcommand) {
-            case 'list':
-                filteredSchedules = await getSortedSchedules();
-                break;
-                
-            case 'today':
-                const endOfDay = new Date(now);
-                endOfDay.setHours(23, 59, 59, 999);
-                filteredSchedules = await getSortedSchedules(s => {
-                    const scheduleDate = new Date(s.dateTime);
-                    return scheduleDate >= now && scheduleDate <= endOfDay;
-                });
-                break;
-                
-            case 'week':
-                const endOfWeek = new Date(now);
-                endOfWeek.setDate(now.getDate() + 7);
-                filteredSchedules = await getSortedSchedules(s => {
-                    const scheduleDate = new Date(s.dateTime);
-                    return scheduleDate >= now && scheduleDate <= endOfWeek;
-                });
-                break;
-                
-            case 'upcoming':
-                const count = interaction.options.getInteger('count') || 3;
-                filteredSchedules = (await getSortedSchedules()).slice(0, count);
-                break;
-        }
+        try {
+            switch (subcommand) {
+                case 'list':
+                    filteredSchedules = await getSortedSchedules();
+                    break;
+                    
+                case 'today':
+                    const endOfDay = new Date(now);
+                    endOfDay.setHours(23, 59, 59, 999);
+                    filteredSchedules = await getSortedSchedules(s => {
+                        const scheduleDate = new Date(s.dateTime);
+                        return scheduleDate >= now && scheduleDate <= endOfDay;
+                    });
+                    break;
+            }
 
-        if (filteredSchedules.length === 0) {
+            if (filteredSchedules.length === 0) {
+                await interaction.reply({
+                    content: '予定が見つかりません。',
+                    ephemeral: true
+                });
+                return;
+            }
+
+            const schedule = filteredSchedules[0];
+            const embed = await createScheduleEmbed(schedule, 0, filteredSchedules.length);
+
+            const prevButton = new ButtonBuilder()
+                .setCustomId(`schedule_nav_prev_0`)
+                .setLabel('◀ 前へ')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(filteredSchedules.length <= 1);
+
+            const nextButton = new ButtonBuilder()
+                .setCustomId(`schedule_nav_next_0`)
+                .setLabel('次へ ▶')
+                .setStyle(ButtonStyle.Secondary)
+                .setDisabled(filteredSchedules.length <= 1);
+
+            const joinButton = new ButtonBuilder()
+                .setCustomId(`join_${schedule.id}`)
+                .setLabel('参加する')
+                .setStyle(ButtonStyle.Success);
+
+            const cancelButton = new ButtonBuilder()
+                .setCustomId(`cancel_${schedule.id}`)
+                .setLabel('参加をキャンセル')
+                .setStyle(ButtonStyle.Danger);
+
+            const navRow = new ActionRowBuilder()
+                .addComponents(prevButton, nextButton);
+            
+            const actionRow = new ActionRowBuilder()
+                .addComponents(joinButton, cancelButton);
+
             await interaction.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor(0xFFB347)
-                        .setTitle('📅 スケジュール')
-                        .setDescription('該当する予定はありません。')
-                        .setTimestamp()
-                ],
+                embeds: [embed],
+                components: [navRow, actionRow],
                 ephemeral: true
             });
-            return;
+        } catch (error) {
+            console.error('Error in schedules command:', error);
+            await interaction.reply({
+                content: 'スケジュールの取得中にエラーが発生しました。',
+                ephemeral: true
+            });
         }
-
-        // 最初のスケジュールを表示
-        const firstSchedule = filteredSchedules[0];
-        const embed = await createScheduleEmbed(firstSchedule, 0, filteredSchedules.length);
-
-        // ボタンの作成
-        const components = [];
-        
-        if (filteredSchedules.length > 1) {
-            const navButtons = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`schedule_nav_prev_0`)
-                        .setLabel('◀ 前へ')
-                        .setStyle(ButtonStyle.Secondary)
-                        .setDisabled(true),
-                    new ButtonBuilder()
-                        .setCustomId(`schedule_nav_next_0`)
-                        .setLabel('次へ ▶')
-                        .setStyle(ButtonStyle.Secondary)
-                );
-            components.push(navButtons);
-        }
-
-        const actionButtons = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder()
-                    .setCustomId(`join_${firstSchedule.id}`)
-                    .setLabel('✅ 参加する')
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId(`cancel_${firstSchedule.id}`)
-                    .setLabel('❌ 参加をキャンセル')
-                    .setStyle(ButtonStyle.Danger)
-            );
-        components.push(actionButtons);
-
-        await interaction.reply({
-            embeds: [embed],
-            components: components,
-            ephemeral: subcommand !== 'list'
-        });
     } else if (interaction.commandName === 'help') {
         const helpEmbed = new EmbedBuilder()
             .setColor(0x00AE86)
