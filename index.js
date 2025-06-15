@@ -222,14 +222,32 @@ function startKeepAlive() {
 async function loadSchedules() {
     try {
         const data = await fs.readFile(SCHEDULE_FILE, 'utf8');
-        schedules = JSON.parse(data);
-        if (schedules.length > 0) {
-            nextId = Math.max(...schedules.map(s => s.id)) + 1;
+        const parsed = JSON.parse(data);
+        
+        // パースしたデータが配列であることを確認
+        if (Array.isArray(parsed)) {
+            schedules = parsed;
+            if (schedules.length > 0) {
+                nextId = Math.max(...schedules.map(s => s.id)) + 1;
+            }
+            console.log(`Loaded ${schedules.length} schedules`);
+        } else {
+            console.error('Invalid schedules data format: Expected an array');
+            schedules = [];
+            nextId = 1;
         }
-        console.log(`Loaded ${schedules.length} schedules`);
     } catch (error) {
-        if (error.code !== 'ENOENT') {
+        if (error.code === 'ENOENT') {
+            // ファイルが存在しない場合は空の配列で初期化
+            console.log('Schedules file does not exist, initializing with empty array');
+            schedules = [];
+            nextId = 1;
+            await fs.writeFile(SCHEDULE_FILE, JSON.stringify(schedules, null, 2));
+        } else {
             console.error('スケジュール読み込みエラー:', error);
+            // エラーが発生しても空の配列で初期化
+            schedules = [];
+            nextId = 1;
         }
     }
 }
@@ -303,14 +321,33 @@ async function getSortedSchedules(filterFn = null) {
 
 // Discord Bot コマンド処理
 client.on('interactionCreate', async interaction => {
-    if (interaction.isButton()) {
+    try {
+        if (!interaction.isButton()) return;
+
         if (interaction.customId.startsWith('copy_auth_')) {
             const key = interaction.customId.split('_')[2];
-            await interaction.reply({
-                content: '```' + key + '```\nコードをコピーしやすいように表示しました。',
-                ephemeral: true
-            });
-            return;
+            if (!authKeys[key]) {
+                try {
+                    await interaction.reply({ content: '認証コードが見つかりません。', ephemeral: true });
+                } catch (error) {
+                    if (error.code === 40060) {
+                        await interaction.followUp({ content: '認証コードが見つかりません。', ephemeral: true });
+                    } else {
+                        console.error('Error handling interaction:', error);
+                    }
+                }
+                return;
+            }
+
+            try {
+                await interaction.reply({ content: `認証コード: ${authKeys[key]}`, ephemeral: true });
+            } catch (error) {
+                if (error.code === 40060) {
+                    await interaction.followUp({ content: `認証コード: ${authKeys[key]}`, ephemeral: true });
+                } else {
+                    console.error('Error handling interaction:', error);
+                }
+            }
         } else if (interaction.customId.startsWith('auth_')) {
             const userId = interaction.customId.split('_')[1];
             
@@ -375,7 +412,15 @@ client.on('interactionCreate', async interaction => {
             const schedule = schedules.find(s => s.id === scheduleId);
             
             if (!schedule) {
-                await interaction.reply({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                try {
+                    await interaction.reply({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                } catch (error) {
+                    if (error.code === 40060) {
+                        await interaction.followUp({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                    } else {
+                        console.error('Error handling interaction:', error);
+                    }
+                }
                 return;
             }
 
@@ -403,7 +448,15 @@ client.on('interactionCreate', async interaction => {
             const schedule = schedules.find(s => s.id === scheduleId);
             
             if (!schedule) {
-                await interaction.reply({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                try {
+                    await interaction.reply({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                } catch (error) {
+                    if (error.code === 40060) {
+                        await interaction.followUp({ content: 'スケジュールが見つかりません。', ephemeral: true });
+                    } else {
+                        console.error('Error handling interaction:', error);
+                    }
+                }
                 return;
             }
 
@@ -489,6 +542,8 @@ client.on('interactionCreate', async interaction => {
             });
         }
         return;
+    } catch (error) {
+        console.error('Error in interaction handler:', error);
     }
 
     if (!interaction.isChatInputCommand()) return;
@@ -870,17 +925,25 @@ app.get('/api/schedules', async (req, res) => {
                 .filter(s => new Date(s.dateTime) > now)
                 .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
         }
-        
+
+        // スケジュールが空の場合でもエラーにしない
         res.json({
             success: true,
-            schedules: result,
+            schedules: result || [],
             timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error('スケジュール取得エラー:', error);
+        // エラーの詳細をログに出力
+        console.error('エラーの詳細:', {
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+        });
         res.status(500).json({ 
             success: false, 
-            error: 'スケジュールの取得に失敗しました'
+            error: 'スケジュールの取得に失敗しました',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });

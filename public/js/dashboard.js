@@ -132,23 +132,29 @@ async function loadSchedules() {
     try {
         showLoading();
         const response = await fetch('/api/schedules?' + new URLSearchParams({
-            _: Date.now() // キャッシュ防止
+            _: Date.now(), // キャッシュ防止
+            all: 'false'  // 未来の予定のみを取得
         }));
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
         if (data.success) {
-            schedules = data.schedules;
+            schedules = Array.isArray(data.schedules) ? data.schedules : [];
             await renderSchedules();
         } else {
             throw new Error(data.error || 'スケジュールの読み込みに失敗しました');
         }
     } catch (error) {
         console.error('スケジュール読み込みエラー:', error);
-        showError('スケジュールの読み込みに失敗しました。');
+        showError('スケジュールの読み込みに失敗しました。ページを再読み込みしてください。');
+        
+        // 空の配列で初期化して表示を更新
+        schedules = [];
+        await renderSchedules();
     } finally {
         hideLoading();
     }
@@ -175,25 +181,155 @@ async function renderSchedules() {
 
 // スケジュールフィルタリング
 function filterSchedules(schedules, filter, now) {
+    if (!Array.isArray(schedules)) {
+        console.error('Invalid schedules data:', schedules);
+        return [];
+    }
+
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfterTomorrow = new Date(tomorrow);
+    dayAfterTomorrow.setDate(tomorrow.getDate() + 1);
     
     return schedules.filter(schedule => {
-        const scheduleDate = new Date(schedule.dateTime);
-        
-        switch (filter) {
-            case 'today':
-                return scheduleDate >= today && scheduleDate < tomorrow;
-            case 'tomorrow':
-                return scheduleDate >= tomorrow && scheduleDate < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
-            case 'my':
-                return schedule.participants.includes(currentUser.discordId);
-            case 'upcoming':
-            default:
-                return scheduleDate >= now;
+        try {
+            const scheduleDate = new Date(schedule.dateTime);
+            if (isNaN(scheduleDate.getTime())) {
+                console.error('Invalid date:', schedule.dateTime);
+                return false;
+            }
+
+            switch (filter) {
+                case 'today':
+                    return scheduleDate >= today && scheduleDate < tomorrow;
+                case 'tomorrow':
+                    return scheduleDate >= tomorrow && scheduleDate < dayAfterTomorrow;
+                case 'my':
+                    return schedule.participants && 
+                           Array.isArray(schedule.participants) && 
+                           schedule.participants.includes(currentUser.discordId);
+                case 'upcoming':
+                default:
+                    return scheduleDate >= now;
+            }
+        } catch (error) {
+            console.error('Error filtering schedule:', error);
+            return false;
         }
-    }).sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+    }).sort((a, b) => {
+        try {
+            return new Date(a.dateTime) - new Date(b.dateTime);
+        } catch (error) {
+            console.error('Error sorting schedules:', error);
+            return 0;
+        }
+    });
+}
+
+// スケジュールカードの作成
+async function createScheduleCard(schedule) {
+    const template = document.getElementById('scheduleCardTemplate');
+    const card = template.content.cloneNode(true).children[0];
+    
+    try {
+        // タイトルと種類を設定
+        card.querySelector('.title').textContent = schedule.title;
+        card.querySelector('.type-badge').textContent = schedule.type;
+        
+        // 日時を設定
+        const datetime = new Date(schedule.dateTime);
+        if (isNaN(datetime.getTime())) {
+            throw new Error('Invalid datetime');
+        }
+        card.querySelector('.datetime').textContent = formatDateTime(datetime);
+        
+        // 説明を設定
+        const description = card.querySelector('.description');
+        description.textContent = schedule.description || '説明はありません';
+        
+        // 参加状態を設定
+        const isParticipating = schedule.participants.includes(currentUser.discordId);
+        const participationStatus = card.querySelector('.participation-status');
+        participationStatus.textContent = isParticipating ? '✅ 参加予定' : '';
+        
+        // 参加者数を設定
+        const agentsCount = card.querySelector('.agents-count');
+        agentsCount.textContent = `参加者: ${schedule.participants.length}人`;
+        
+        // ボタンの状態を設定
+        const joinBtn = card.querySelector('.join-btn');
+        const cancelBtn = card.querySelector('.cancel-btn');
+        
+        if (isParticipating) {
+            joinBtn.style.display = 'none';
+            cancelBtn.style.display = 'block';
+        } else {
+            joinBtn.style.display = 'block';
+            cancelBtn.style.display = 'none';
+        }
+        
+        // ボタンのイベントリスナーを設定
+        joinBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`/api/schedules/${schedule.id}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('参加に失敗しました');
+                }
+                
+                await loadSchedules();
+                showSuccessMessage('参加を表明しました！');
+            } catch (error) {
+                console.error('参加エラー:', error);
+                showError('参加の処理に失敗しました。');
+            }
+        });
+        
+        cancelBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch(`/api/schedules/${schedule.id}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('キャンセルに失敗しました');
+                }
+                
+                await loadSchedules();
+                showSuccessMessage('参加をキャンセルしました。');
+            } catch (error) {
+                console.error('キャンセルエラー:', error);
+                showError('キャンセルの処理に失敗しました。');
+            }
+        });
+        
+        return card;
+    } catch (error) {
+        console.error('スケジュールカード作成エラー:', error);
+        const errorCard = document.createElement('div');
+        errorCard.className = 'schedule-card error';
+        errorCard.textContent = 'スケジュールの表示に失敗しました';
+        return errorCard;
+    }
+}
+
+// 日時のフォーマット
+function formatDateTime(date) {
+    const options = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Tokyo'
+    };
+    return date.toLocaleString('ja-JP', options);
 }
 
 // UI要素表示/非表示

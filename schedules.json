@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "title": "test",
+    "type": "試合",
+    "dateTime": "2025-06-16T11:00:00.000Z",
+    "description": "test",
+    "createdBy": "Tisk_01010100",
+    "createdById": "1162414065348521984",
+    "participants": [],
+    "absentees": [
+      "1162414065348521984"
+    ],
+    "notifiedAt": [],
+    "createdAt": "2025-06-15T06:45:51.450Z"
+  }
+]
